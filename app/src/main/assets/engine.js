@@ -10,7 +10,8 @@
     return { version: 2, name: "Explorer", onboarded: false,
       sound: true, reduceMotion: false, xp: 0, coins: 0, streak: 0,
       lastDay: "", dailyCount: 0, dailyGoal: 10, wordStats: {},
-      favorites: [], lessonFinishes: {}, quizzesWon: 0, perfectQuizzes: 0,
+      favorites: [], lessonFinishes: {}, storyFinishes: {}, storyResponses: {},
+      quizzesWon: 0, perfectQuizzes: 0,
       completedMatches: 0, completedSpelling: 0, bossWins: 0,
       dailyHistory: {}, dailyClaims: {}, hintsUsed: 0 };
   }
@@ -21,6 +22,8 @@
     if (!state.wordStats || typeof state.wordStats !== "object") state.wordStats = {};
     if (!Array.isArray(state.favorites)) state.favorites = [];
     if (!state.lessonFinishes || typeof state.lessonFinishes !== "object") state.lessonFinishes = {};
+    if (!state.storyFinishes || typeof state.storyFinishes !== "object") state.storyFinishes = {};
+    if (!state.storyResponses || typeof state.storyResponses !== "object") state.storyResponses = {};
     if (!state.dailyHistory || typeof state.dailyHistory !== "object") state.dailyHistory = {};
     if (!state.dailyClaims || typeof state.dailyClaims !== "object") state.dailyClaims = {};
     if (Object.keys(state.wordStats).length > 0) state.onboarded = true;
@@ -66,7 +69,7 @@
     activity(progress, now).quizzes += 1;
     progress.quizzesWon++;
     if (score === total) progress.perfectQuizzes++;
-    if (mode === "spell") progress.completedSpelling++;
+    if (mode === "spell" || mode === "listen") progress.completedSpelling++;
     award(progress, 20);
   }
   function recordFavorite(progress, now = new Date()) {
@@ -155,6 +158,9 @@
       { icon: "🏅", title: "Quest Champion", description: "Earn 500 XP", earned: progress.xp >= 500 },
       { icon: "🎯", title: "Perfect Run", description: "Complete a perfect quiz", earned: progress.perfectQuizzes >= 1 },
       { icon: "🧩", title: "Puzzle Pro", description: "Win 5 matching games", earned: progress.completedMatches >= 5 },
+      { icon: "📚", title: "Story Starter", description: "Complete your first reading adventure", earned: Object.keys(progress.storyFinishes).length >= 1 },
+      { icon: "✍️", title: "Page Turner", description: "Reflect on 12 stories", earned: Object.keys(progress.storyFinishes).length >= 12 },
+      { icon: "🦉", title: "Reading Champion", description: "Explore 36 stories", earned: Object.keys(progress.storyFinishes).length >= 36 },
       { icon: "👑", title: "Boss Slayer", description: "Conquer a Boss Battle", earned: progress.bossWins >= 1 },
       { icon: "💖", title: "Word Keeper", description: "Save 20 favorite words", earned: progress.favorites.length >= 20 },
       { icon: "🗺️", title: "World Traveler", description: "Finish 5 lessons", earned: Object.keys(progress.lessonFinishes).length >= 5 },

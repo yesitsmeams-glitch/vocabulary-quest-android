@@ -43,6 +43,92 @@ def group_lines(tokens):
             for line in sorted(lines, key=lambda line: line["top"])]
 
 
+def positioned_lines(tokens):
+    """Keep baseline positions to retain the story's paragraph breaks."""
+    lines = []
+    for token in sorted(tokens, key=lambda w: (w["top"], w["x0"])):
+        line = next((line for line in lines if abs(line["top"] - token["top"]) < 2.3), None)
+        if line is None:
+            line = {"top": token["top"], "tokens": []}
+            lines.append(line)
+        line["tokens"].append(token)
+    return [(line["top"], " ".join(w["text"] for w in sorted(line["tokens"], key=lambda w: w["x0"])))
+            for line in sorted(lines, key=lambda line: line["top"])]
+
+
+def extract_story(page, level, set_number):
+    """Recover the reading passage and four open-ended questions, never invent answers."""
+    text = page.extract_text() or ""
+    if "Story Adventure!" not in text or "READ & RESPOND" not in text:
+        raise ValueError(f"{level} set {set_number}: story page not found")
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    story_label = next((i for i, line in enumerate(lines)
+                        if re.fullmatch(r"STORY\s+\d{2}", line)), None)
+    title = lines[story_label + 1] if story_label is not None else f"Story {set_number:02d}"
+    tokens = page.extract_words(x_tolerance=1.4, y_tolerance=2.8)
+    find = next((token for token in tokens if token["text"] == "Find" and 125 < token["top"] < 230), None)
+    read = next((token for token in tokens if token["text"] == "READ" and 450 < token["top"] < 750), None)
+    twist = next((token for token in tokens if "TWIST" in token["text"] and token["top"] > 540), None)
+    if not twist and read:
+        twist = next((token for token in tokens if token["text"] == "STORY"
+                      and token["top"] > read["top"] + 60), None)
+    if not find or not read or not twist:
+        raise ValueError(f"{level} set {set_number}: reading boundaries missing")
+    narrative = [w for w in tokens if 39 <= w["x0"] < 558
+                 and find["top"] + 24 < w["top"] < read["top"] - 10]
+    paragraphs = []
+    previous_top = None
+    for top, line in positioned_lines(narrative):
+        if previous_top is None or top - previous_top > 23:
+            paragraphs.append(line)
+        else:
+            paragraphs[-1] += " " + line
+        previous_top = top
+    if len(paragraphs) == 1 and len(paragraphs[0]) > 650:
+        # Denser B2–C2 pages have no vertical gap between printed paragraphs.
+        # Insert reading breaks at sentence boundaries without altering text.
+        sentences = re.split(r"(?<=[.!?])\s+(?=['\"“]?[A-Z])", paragraphs[0])
+        separated = []
+        for sentence in sentences:
+            if not separated or len(separated[-1]) >= 450:
+                separated.append(sentence)
+            else:
+                separated[-1] += " " + sentence
+        if len(separated) > 1:
+            paragraphs = separated
+    anchors = sorted([w for w in tokens if w["text"] in {"1", "2", "3", "4"}
+                      and read["top"] + 20 < w["top"] < twist["top"] - 12
+                      and (35 <= w["x0"] <= 46 or 308 <= w["x0"] <= 326)],
+                     key=lambda w: int(w["text"]))
+    if len(anchors) != 4 or [int(w["text"]) for w in anchors] != [1, 2, 3, 4]:
+        raise ValueError(f"{level} set {set_number}: expected 4 story questions, got {anchors}")
+    questions = []
+    for anchor in anchors:
+        left = anchor["x0"] < 200
+        next_row = [other["top"] for other in anchors
+                    if (other["x0"] < 200) == left and other["top"] > anchor["top"] + 3]
+        end = min(next_row, default=twist["top"] - 15) - 8
+        words = [w for w in tokens
+                 if (58 if left else 334) <= w["x0"] < (300 if left else 574)
+                 and anchor["top"] - 5 <= w["top"] < end]
+        question = " ".join(group_lines(words)).strip()
+        if len(question) < 8:
+            raise ValueError(f"{level} set {set_number}: unclear question #{anchor['text']}: {question!r}")
+        questions.append(question)
+    if not paragraphs or len(" ".join(paragraphs)) < 300:
+        raise ValueError(f"{level} set {set_number}: missing story narrative")
+    return {"title": title, "paragraphs": paragraphs, "questions": questions}
+
+
+def story_example(term, story):
+    """Use a full sentence from the supplied story when a PDF card was clipped."""
+    narrative = " ".join(story["paragraphs"])
+    sentences = re.split(r"(?<=[.!?])\s+(?=['\"“]?[A-Z])", narrative)
+    pattern = re.compile(r"(?<!\w)" + re.escape(term) + r"(?!\w)", re.IGNORECASE)
+    matches = [s.strip() for s in sentences if pattern.search(s) and len(s.strip()) >= 12]
+    return min(matches, key=len) if matches else ""
+
+
 def extract_word(page_words, anchor, next_top, level):
     left = anchor["x0"] < 200
     origin = anchor["x1"]
@@ -114,6 +200,15 @@ def extract_level(level, source):
             numbers = [item["number"] for item in entries]
             if numbers != expected:
                 raise ValueError(f"{level} set {set_number}: sequence mismatch {numbers}")
+            if page_number >= len(doc.pages):
+                raise ValueError(f"{level} set {set_number}: story is after the last page")
+            story = extract_story(doc.pages[page_number], level, set_number)
+            for entry in entries:
+                if (not entry["example"] or "…" in entry["example"]
+                        or entry["term"].casefold() not in entry["example"].casefold()):
+                    complete = story_example(entry["term"], story)
+                    if complete:
+                        entry["example"] = complete
             lessons.append({
                 "id": f"{level.lower()}-set-{set_number:02d}",
                 "title": title,
@@ -123,6 +218,7 @@ def extract_level(level, source):
                 "emoji": {"A1":"🦊","A2":"🌱","B1":"🧭","B2":"🌊","C1":"✨","C2":"🌌"}[level],
                 "color": {"A1":"#F6A844","A2":"#37BE9C","B1":"#6598EF","B2":"#9278F7","C1":"#EF9A56","C2":"#D36AB7"}[level],
                 "words": entries,
+                "story": story,
             })
     if len(lessons) != 36:
         raise ValueError(f"{level}: found {len(lessons)} sets, expected 36")
@@ -147,7 +243,10 @@ def main():
         payload = json.dumps(lessons, ensure_ascii=False, separators=(",", ":"))
         target.write_text(f"window.VQ_CURRICULUM = (window.VQ_CURRICULUM || []).concat({payload});\n", encoding="utf-8")
         examples = sum(bool(word["example"]) for lesson in lessons for word in lesson["words"])
-        summary[level] = {"sets": len(lessons), "words": 900, "examples": examples, "bytes": target.stat().st_size}
+        summary[level] = {"sets": len(lessons), "words": 900, "examples": examples,
+                          "stories": sum(bool(lesson["story"]["paragraphs"]) for lesson in lessons),
+                          "questions": sum(len(lesson["story"]["questions"]) for lesson in lessons),
+                          "bytes": target.stat().st_size}
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 

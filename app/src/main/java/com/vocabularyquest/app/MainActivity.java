@@ -51,6 +51,24 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 if (speakerReady) speaker.speak(word, TextToSpeech.QUEUE_FLUSH, null, "vq-word");
             });
         }
+
+        /** Text-to-speech is local to Android's installed voice engine. */
+        @JavascriptInterface public void speakText(String text, float rate) {
+            if (text == null || text.isEmpty() || text.length() > 3800) return;
+            final float safeRate = Math.max(.55f, Math.min(rate, 1.2f));
+            runOnUiThread(() -> {
+                if (speakerReady) {
+                    speaker.setSpeechRate(safeRate);
+                    speaker.speak(text, TextToSpeech.QUEUE_FLUSH, null, "vq-reading");
+                }
+            });
+        }
+
+        @JavascriptInterface public void stopSpeech() {
+            runOnUiThread(() -> {
+                if (speakerReady) speaker.stop();
+            });
+        }
     }
 
     @Override public void onBackPressed() {

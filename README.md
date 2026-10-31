@@ -6,11 +6,15 @@ An offline-first, premium-styled English vocabulary adventure for Android.
 
 - Original fox explorer mascot **Lumi**, welcoming onboarding and a colorful quest path
 - 216 PDF-derived adventures across A1, A2, B1, B2, C1 and C2
-- 5,400 numbered entries (900 per level), with Arabic meanings and example snippets
+- 5,400 numbered entries (900 per level), with Arabic meanings and complete context examples
+- All 216 original reading stories, with 864 open-response comprehension prompts
+- 5,400 original word illustrations packed into 216 lazy-loaded WebP atlases
 - 15 additional themed bonus worlds (150 English-definition words)
 - 5,550 total lesson entries, offline with no network connection
-- Dedicated level selector, flip-card lessons with pronunciation, and examples
-- Multiple-choice challenges, spelling challenges and matching pairs
+- Dedicated level selector, illustrated flip-cards and full-page reading activities
+- Tap-to-translate words in stories, native read-aloud and slow pronunciation
+- Multiple-choice challenges, spelling, listening dictation and matching pairs
+- Reading answer saving and first-completion XP rewards (answers are not auto-graded)
 - Smart review scheduling, favorites, adjustable daily goals, streaks, XP and badges
 - Daily treasure missions, claimable gems, a Boss Battle and purchasable in-game hints
 - Weekly activity charts, level progress, sound effects and motion controls
@@ -21,8 +25,11 @@ An offline-first, premium-styled English vocabulary adventure for Android.
 > numbered word entries. The first PDF is labeled **PRE-A1** in its own pages;
 > it is presented as the A1 foundation in the app. The bonus 150 words are
 > separate and do not count toward the 5,400-entry target. Some terms recur.
-> PDF word lists and short example snippets were migrated; original full PDFs,
-> stories and illustrated pages are not embedded. The app's fox artwork is new.
+> The source PDFs are not embedded. Their stories, questions and individual word
+> illustrations are extracted into compact offline app assets. The workbooks
+> are credited to their original designer, Ahmed Maher. Lumi's fox artwork is new.
+> Translations and source text should still receive human proofreading before
+> any commercial publication.
 
 ## Preview locally
 
@@ -51,9 +58,10 @@ With Node.js 20 or later:
 npm test
 ```
 
-The tests validate the full 5,400-entry curriculum, Arabic text, IDs,
-challenge options, progress migration, daily missions, review scheduling and
-UI navigation. The app requires no npm packages at runtime.
+The tests validate the full 5,400-entry curriculum, 216 stories, 864 questions,
+illustration atlas files, Arabic meanings, IDs, challenge options, reading
+progress migration, daily missions, review scheduling and UI navigation.
+The app requires no npm packages at runtime.
 
 ## Extending the word library
 
@@ -63,6 +71,7 @@ To regenerate it from the source PDF attachments, run:
 
 ```sh
 python3 scripts/extract_vocab_pdfs.py --input-dir ../upload --out-dir app/src/main/assets/curriculum
+python3 scripts/extract_word_art.py --input-dir ../upload --out-dir app/src/main/assets/illustrations
 ```
 
 The extraction script checks all 36 sets and 900 entries per level. It never
@@ -73,3 +82,13 @@ progress.
 
 The app collects no personal data, does not run analytics, and does not contact
 an external server. The Android shell only allows its bundled `file://` content.
+Android's locally installed Text-to-Speech engine provides pronunciation and
+story reading; availability depends on that engine and installed voice data.
+
+## Release signing
+
+The GitHub Actions workflow currently builds a **debug-signed APK** for testing.
+A production release requires a stable signing key managed securely outside the
+repository, real-device QA, and an appropriate distribution process. Debug APKs
+from different CI runs may have different signing certificates; do not uninstall
+an earlier install without backing up any important progress.

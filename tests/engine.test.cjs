@@ -59,6 +59,15 @@ test('progress normalization repairs invalid storage objects', () => {
   assert.equal(progress.xp, 35);
   assert.deepEqual(progress.favorites, []);
   assert.deepEqual(progress.wordStats, {});
+  assert.deepEqual(progress.storyFinishes, {});
+  assert.deepEqual(progress.storyResponses, {});
+});
+
+test('reading progress and responses survive an app upgrade', () => {
+  const progress = engine.normalizeProgress({onboarded:true,storyFinishes:{'a1-set-01':true},storyResponses:{'a1-set-01':{'0':'A golden bell'}}});
+  assert.equal(progress.storyFinishes['a1-set-01'],true);
+  assert.equal(progress.storyResponses['a1-set-01']['0'],'A golden bell');
+  assert.ok(engine.achievements(progress,words).some(b=>b.title==='Story Starter' && b.earned));
 });
 
 test('upgrading progress preserves earlier words and skips onboarding for existing learners', () => {

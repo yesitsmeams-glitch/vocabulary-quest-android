@@ -85,6 +85,10 @@ button:disabled { cursor: default; opacity: .55; }
 .lesson-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
 .lesson-card { border: 1px solid var(--line); background: var(--surface); border-radius: 23px; padding: 14px; text-align: left; box-shadow: 0 10px 20px #2e28570b; min-width: 0; transition: transform .18s,box-shadow .18s; }
 .lesson-card:hover { transform: translateY(-4px); box-shadow: 0 16px 28px #2e285720; }
+.lesson-card-main { display: block; width: 100%; padding: 0; text-align: left; border: 0; background: transparent; color: inherit; }
+.lesson-card-main:focus-visible,.lesson-read-button:focus-visible,.inline-vocab:focus-visible { outline: 3px solid #6b59f7; outline-offset: 2px; }
+.lesson-read-button { margin: 5px 2px 0; display: flex; justify-content: space-between; align-items: center; width: calc(100% - 4px); padding: 10px 12px; background: #f4f0ff; border: 1px solid #e9e2ff; border-radius: 12px; color: #5d49d1; font-size: 11px; font-weight: 950; }
+.lesson-read-button span { font-size: 17px; }
 .lesson-illustration { height: 102px; border-radius: 16px; background: linear-gradient(145deg,color-mix(in srgb,var(--accent) 50%,white),color-mix(in srgb,var(--accent) 16%,white)); display: grid; place-items: center; position: relative; overflow: hidden; }
 .lesson-illustration:after { content: ''; position: absolute; right: -20px; bottom: -48px; width: 125px; height: 125px; border: 2px solid #ffffff62; border-radius: 50%; }
 .lesson-illustration span { font-size: 59px; filter: drop-shadow(0 9px 7px #0000001a); z-index: 1; }
@@ -115,6 +119,32 @@ button:disabled { cursor: default; opacity: .55; }
 .flashcard .word-type { background: #e9e3ff; color: var(--purple); border-radius: 20px; padding: 5px 13px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; }
 .flashcard .definition { font-size: 22px; line-height: 1.45; max-width: 490px; font-weight: 800; }
 .flashcard .example { font-size: 14px; color: #6d6a87; margin-top: 16px; font-style: italic; line-height: 1.7; }
+.vocab-art { display: inline-block; width: 72px; height: 72px; flex: 0 0 72px; background-repeat: no-repeat; background-size: 360px 360px; }
+.word-emoji:has(.vocab-art) { overflow: hidden; align-items: center; justify-content: center; }
+.word-emoji .vocab-art { transform: scale(.58); flex: 0 0 72px; }
+.reading-page { max-width: 910px; margin: 0 auto 45px; }
+.reading-hero { min-height: 240px; padding: 39px; display: flex; flex-direction: column; justify-content: center; background: linear-gradient(90deg,#523b9a91,#523b9a00),url('lumi-storybook.webp') center / cover no-repeat; border-radius: 27px; color: white; margin-top: 24px; overflow: hidden; }
+.reading-hero h1 { font-size: clamp(25px,4vw,43px); max-width: 48%; margin: 14px 0 8px; text-shadow: 0 2px 9px #3720775a; }
+.reading-hero p { max-width: 45%; font-size: 13px; color: #f3ebff; line-height: 1.6; margin: 0; }
+.reading-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.reading-toolbar .btn { padding: 10px 15px; font-size: 12px; }
+.reading-surface { padding: 30px 34px; }
+.reading-surface .section-heading { margin-top: 0; }
+.story-paragraph { color: #3a3657; font-size: 16px; line-height: 2.05; margin: 18px 0; }
+.inline-vocab { display: inline; background: #eeeaff; color: #5d4abc; border: 0; border-bottom: 2px dotted #9181e8; border-radius: 4px; padding: 0 3px; font: inherit; font-weight: 850; cursor: pointer; }
+.inline-vocab:hover { background: #ded7ff; }
+.vocab-preview { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 9px; margin: 25px 0 2px; border-top: 1px solid #e9e5f4; padding-top: 20px; }
+.vocab-preview-card { border: 1px solid #eee9f8; background: #faf9ff; border-radius: 15px; padding: 6px 3px 8px; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.vocab-preview-card strong { font-size: 10px; text-align: center; overflow-wrap: anywhere; color: var(--ink); }
+.vocab-preview-card .vocab-art { margin-bottom: 2px; }
+.story-questions { margin-top: 18px; padding: 28px 34px; }
+.story-questions h2 { margin: 10px 0 8px; }
+.story-question { display: block; margin: 23px 0; }
+.story-question strong { font-size: 14px; display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.story-question strong span { background: #ece8ff; color: #6853de; border-radius: 10px; width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; }
+.story-question textarea { width: 100%; min-height: 75px; margin-top: 10px; padding: 13px 14px; border: 1px solid #e0dbea; border-radius: 14px; resize: vertical; background: #fcfbff; font: inherit; font-size: 13px; line-height: 1.6; color: var(--ink); }
+.story-question textarea:focus { outline: 2px solid #8470e9; border-color: transparent; }
+.listen-buttons { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 24px 0 10px; }
 .speaker { background: white; width: 47px; height: 47px; border: 1px solid var(--line); border-radius: 50%; font-size: 19px; color: var(--purple); }
 .floating-speaker { position: absolute; right: 20px; top: 20px; }.floating-fav { position: absolute; left: 20px; top: 20px; }
 .lesson-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
@@ -145,6 +175,7 @@ button:disabled { cursor: default; opacity: .55; }
 @keyframes bob { 50% { transform: translateY(-9px) rotate(2deg); } } @keyframes pop { 0% { transform: scale(.65); opacity: .4; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } } @keyframes rise { from { transform: translate(-50%,15px); opacity: 0; } to { transform: translate(-50%,0); opacity: 1; } }
 @media (max-width: 1100px) { .sidebar { width: 206px; }.workspace { padding: 25px 22px 100px; }.lesson-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.content-grid { grid-template-columns: 1.25fr .75fr; } }
 @media (max-width: 750px) {
+  .reading-hero { min-height: 210px; padding: 23px; background-position: 57% center; }.reading-hero h1 { max-width: 64%; font-size: 24px; }.reading-hero p { max-width: 58%; font-size: 11px; }.reading-surface,.story-questions { padding: 19px; }.story-paragraph { font-size: 14px; line-height: 1.9; }.reading-toolbar .btn { flex: 1 1 auto; font-size: 11px; }.vocab-preview { gap: 3px; }.vocab-preview-card .vocab-art { transform: scale(.7); margin: -7px 0; }.vocab-preview-card strong { font-size: 9px; }
   .sidebar { display: none; }.shell { display: block; }.workspace { padding: 20px 16px 104px; }.mobile-brand { display: flex; align-items: center; gap: 9px; font-weight: 950; letter-spacing: -.5px; }.mobile-brand .brand-mark { width: 36px; height: 36px; font-size: 19px; border-radius: 12px; }
   .topbar { margin-bottom: 18px; }.topbar .hello { display: none; }.top-stats { margin-left: auto; }.top-stats .stat-pill:nth-child(2) { display: none; }.stat-pill { padding: 7px 9px; }.avatar { height: 36px; width: 36px; border-radius: 12px; font-size: 20px; }
   .hero { grid-template-columns: 1.3fr .7fr; min-height: 205px; padding: 23px; border-radius: 23px; }.hero h2 { font-size: 27px; }.hero p { font-size: 12px; margin-bottom: 16px; }.hero-art { height: 180px; }.hero-orb { width: 125px; height: 125px; font-size: 71px; }.hero-art .spark { font-size: 20px; }

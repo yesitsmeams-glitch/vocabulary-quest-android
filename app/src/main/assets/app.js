@@ -7,13 +7,14 @@
   const engine = window.VQEngine;
   const words = engine.allWords(lessons);
   const byId = new Map(words.map(word => [word.id, word]));
+  const lessonMap = new Map(lessons.map(lesson => [lesson.id, lesson]));
   const storageKey = 'vocabulary-quest-progress-v1';
   const root = document.getElementById('app');
   let progress;
   try { progress = engine.normalizeProgress(JSON.parse(localStorage.getItem(storageKey))); }
   catch (_) { progress = engine.defaultProgress(); }
   const ui = { screen: progress.onboarded ? 'home' : 'welcome', lessonId: lessons[0].id, index: 0,
-    flipped: false, quiz: null, result: null, match: null,
+    flipped: false, quiz: null, result: null, match: null, storyRevealed: true,
     learnView: 'path', exploreMode: 'curriculum', curriculumLevel: 'A1',
     onboardGoal: 10, onboardName: '',
     collectionQuery: '', collectionFilter: 'all', collectionLevel: 'all', collectionLimit: 60,
@@ -27,7 +28,27 @@
     try { localStorage.setItem(storageKey, JSON.stringify(progress)); }
     catch (_) { toast('Your device could not save progress. Check available storage.'); }
   }
-  function lessonById(id) { return lessons.find(lesson => lesson.id === id) || lessons[0]; }
+  function lessonById(id) { return lessonMap.get(id) || lessons[0]; }
+  function wordArt(word, className = 'vocab-art') {
+    if (!word.level || !word.number) return '';
+    const index = (word.number - 1) % 25;
+    const set = String(Math.ceil(word.number / 25)).padStart(2,'0');
+    return `<span class="${className}" role="img" aria-label="Illustration: ${esc(word.term)}" style="background-image:url('illustrations/${word.level.toLowerCase()}-${set}.webp');background-position:-${(index%5)*72}px -${Math.floor(index/5)*72}px"></span>`;
+  }
+  function storyHighlights(paragraph, lesson) {
+    const dictionary = new Map(lesson.words.map(w => [w.term.toLowerCase(),w]));
+    const terms = [...dictionary.keys()].sort((a,b)=>b.length-a.length)
+      .map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+    const pattern = new RegExp(`\\b(${terms.join('|')})\\b`,'gi');
+    let out = '', position = 0, match;
+    while ((match = pattern.exec(paragraph)) !== null) {
+      out += esc(paragraph.slice(position,match.index));
+      const word = dictionary.get(match[0].toLowerCase());
+      out += `<button class="inline-vocab" data-action="show-word" data-id="${esc(word.id)}">${esc(match[0])}</button>`;
+      position = match.index + match[0].length;
+    }
+    return out + esc(paragraph.slice(position));
+  }
   function wordSeen(id) { return Boolean(progress.wordStats[id]); }
   function countSeen(lesson) { return lesson.words.filter(word => wordSeen(word.id)).length; }
   function mastered() { return words.filter(word => engine.isMastered(progress, word.id)).length; }
@@ -76,7 +97,7 @@
     setTimeout(() => layer.remove(),2200);
   }
   function nav(name, icon, label) {
-    const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish'].includes(ui.screen)) ||
+    const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) ||
       (name === 'practice' && ['quiz','spell','match','result'].includes(ui.screen));
     return `<button type="button" class="nav-link ${active ? 'active' : ''}" data-action="nav" data-to="${name}"><span class="nav-emoji">${icon}</span>${label}</button>`;
   }
@@ -97,17 +118,17 @@
   }
   function bottomnav() {
     return `<nav class="bottom-nav" aria-label="Mobile navigation">${navItems.map(([name,icon,label]) => {
-      const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish'].includes(ui.screen)) || (name === 'practice' && ['quiz','spell','match','result'].includes(ui.screen));
+      const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) || (name === 'practice' && ['quiz','spell','match','result'].includes(ui.screen));
       return `<button aria-label="${label}" ${active ? 'aria-current="page"' : ''} class="${active ? 'active':''}" data-action="nav" data-to="${name}"><span>${icon}</span>${label}</button>`;
     }).join('')}</nav>`;
   }
   function progressBar(n, total, mint = false) { return `<div class="progress-track"><div class="progress-fill ${mint ? 'mint' : ''}" style="width:${percent(n,total)}%"></div></div>`; }
   function lessonCard(lesson) {
     const seen = countSeen(lesson);
-    return `<button class="lesson-card" data-action="open-lesson" data-id="${lesson.id}" style="--accent:${lesson.color}">
+    return `<article class="lesson-card" style="--accent:${lesson.color}"><button class="lesson-card-main" data-action="open-lesson" data-id="${lesson.id}" aria-label="Study words: ${esc(lesson.title)}">
       <div class="lesson-illustration"><span>${lesson.emoji}</span></div><div class="lesson-card-info"><h3>${esc(lesson.title)}</h3><p>${esc(lesson.subtitle)}</p>
       <div class="lesson-footer"><span>${lesson.words.length} words</span><strong>${seen === lesson.words.length ? '✓ Complete' : `${seen}/${lesson.words.length} discovered`}</strong></div>
-      <div class="lesson-bar"><i style="width:${percent(seen,lesson.words.length)}%"></i></div></div></button>`;
+      <div class="lesson-bar"><i style="width:${percent(seen,lesson.words.length)}%"></i></div></div></button>${lesson.story ? `<button class="lesson-read-button" data-action="open-story" data-id="${lesson.id}">📖 ${progress.storyFinishes[lesson.id] ? 'Read again ✓' : 'Read the story'} <span>→</span></button>` : ''}</article>`;
   }
   function welcome() {
     return `<main class="welcome-screen"><div class="welcome-glow glow-one"></div><div class="welcome-glow glow-two"></div>
@@ -162,11 +183,14 @@
     return `<div class="lesson-stage">${stageHeader(current.title, 'Discover · Flip · Remember', ui.index + 1, current.words.length)}
       <p class="flip-help">${ui.flipped ? 'A little knowledge goes a long way 🌟' : 'Tap the card to reveal the meaning ✨'}</p>
       <button class="flashcard ${ui.flipped ? 'flipped' : ''}" data-action="flip" aria-label="Flip vocabulary card">
-        <span class="card-orb">${ui.flipped ? '💡' : current.emoji}</span>
+        <span class="card-orb">${word.level ? wordArt(word) : ui.flipped ? '💡' : current.emoji}</span>
         ${ui.flipped ? `<span class="word-type">${word.level ? 'ARABIC MEANING' : 'THE MEANING'}</span><p class="definition" dir="auto">${esc(word.meaning)}</p>${word.example ? `<p class="example" dir="auto">“${esc(word.example)}”</p>` : ''}` : `<h2>${esc(word.term)}</h2><span class="word-type">TAP TO DISCOVER</span>`}
       </button><div class="lesson-actions">
         <button class="btn btn-outline" data-action="speak" data-id="${esc(word.id)}">🔊 Listen</button>
+        <button class="btn btn-outline" data-action="speak-slow" data-id="${esc(word.id)}">🐢 Slow pronunciation</button>
+      </div><div class="lesson-actions">
         <button class="btn btn-outline" data-action="favorite" data-id="${esc(word.id)}">${fav ? '❤️ Saved' : '🤍 Save word'}</button>
+        ${current.story ? `<button class="btn btn-outline" data-action="open-story" data-id="${current.id}">📖 Read the story</button>` : '<span></span>'}
       </div><div class="lesson-actions mt-2">
         <button class="btn btn-soft btn-large" data-action="study" data-known="no">🔁 Practice again</button>
         <button class="btn btn-success btn-large" data-action="study" data-known="yes">Got it! ✓</button>
@@ -176,7 +200,44 @@
     const current = lessonById(ui.lessonId);
     return finish('World explored!', `${current.title} is complete. Your brain just grew a little stronger.`,current.emoji,[
       ['📚',current.words.length,'WORDS'],['🏅','+30','BONUS XP']
-    ], `<button class="btn btn-primary btn-large btn-full" data-action="start-quiz" data-mode="choice" data-id="${current.id}">Test your knowledge ⚡</button><button class="btn btn-outline btn-large btn-full mt-2" data-action="nav" data-to="learn">Explore another world →</button>`);
+    ], `${current.story ? `<button class="btn btn-primary btn-large btn-full" data-action="open-story" data-id="${current.id}">Read the illustrated story 📖</button>` : ''}<button class="btn btn-outline btn-large btn-full mt-2" data-action="start-quiz" data-mode="choice" data-id="${current.id}">Test your knowledge ⚡</button><button class="btn btn-outline btn-large btn-full mt-2" data-action="nav" data-to="learn">Explore another world →</button>`);
+  }
+  function story() {
+    const current = lessonById(ui.lessonId), reading = current.story;
+    const responses = progress.storyResponses[current.id] || {};
+    const answered = reading.questions.filter((_,i) => (responses[i] || '').trim().length >= 3).length;
+    const done = Boolean(progress.storyFinishes[current.id]);
+    return `<div class="reading-page">${stageHeader(reading.title,`${current.level} · Reading adventure · ${current.words.length} illustrated words`,answered,4)}
+      <div class="reading-hero"><span class="hero-tag">📖 LUMI'S STORY LIBRARY</span><h1>${esc(reading.title)}</h1><p>Read, discover, listen, and tell us what you think.</p></div>
+      <div class="reading-toolbar"><button class="btn btn-outline" data-action="speak-story" data-speed="normal">🔊 Listen to story</button><button class="btn btn-outline" data-action="speak-story" data-speed="slow">🐢 Play slower</button><button class="btn btn-outline" data-action="stop-speech">■ Stop</button></div>
+      <div class="surface reading-surface"><div class="section-heading"><div><span class="eyebrow">STORY ${String(current.set).padStart(2,'0')}</span><h2>Let's read together</h2><p>Tap highlighted words to see their Arabic meanings.</p></div></div>
+        ${reading.paragraphs.map(p => `<p class="story-paragraph">${storyHighlights(p,current)}</p>`).join('')}
+        <div class="vocab-preview">${current.words.slice(0,5).map(w => `<button class="vocab-preview-card" data-action="show-word" data-id="${esc(w.id)}">${wordArt(w)}<strong>${esc(w.term)}</strong></button>`).join('')}</div>
+      </div>
+      <div class="surface story-questions"><span class="eyebrow">READ & RESPOND</span><h2>Think about the story 💭</h2><p class="muted small">Write your own answers. This is a reflection exercise, not an automatically graded test. Your responses save on this device.</p>
+        ${reading.questions.map((question,i) => `<label class="story-question" for="story-answer-${i}"><strong><span>${i+1}</span> ${esc(question)}</strong><textarea id="story-answer-${i}" data-role="story-answer" data-index="${i}" rows="2" placeholder="Write your answer here...">${esc(responses[i] || '')}</textarea></label>`).join('')}
+        <button class="btn ${done ? 'btn-outline' : 'btn-primary'} btn-large btn-full" data-action="finish-story">${done ? '✓ Story completed · Review answers' : 'Complete story · Earn 40 XP 🌟'}</button>
+      </div></div>`;
+  }
+  function storyFinish() {
+    const current = lessonById(ui.lessonId);
+    return finish('Reading adventure complete!',`You explored ${current.story.title}, found new words, and reflected on all four questions.`,'📚',[
+      ['📖','1','STORY'],['💬','4','RESPONSES'],['✨','+40','XP FIRST TIME']
+    ],`<button class="btn btn-primary btn-large btn-full" data-action="start-quiz" data-mode="choice" data-id="${current.id}">Quiz on these words ⚡</button><button class="btn btn-outline btn-large btn-full mt-2" data-action="nav" data-to="learn">Choose another adventure →</button>`);
+  }
+  function finishStory() {
+    const current = lessonById(ui.lessonId);
+    if (!current.story) return;
+    const responses = progress.storyResponses[current.id] || {};
+    if (current.story.questions.some((_,i) => (responses[i] || '').trim().length < 3)) {
+      toast('Write a short answer to each of the four questions first ✏️'); return;
+    }
+    if (!progress.storyFinishes[current.id]) {
+      progress.storyFinishes[current.id] = true;
+      engine.award(progress,40);
+      save(); playSound('reward'); celebrate();
+    }
+    go('story-finish');
   }
   function practice() {
     return `<div class="page-heading"><div class="eyebrow">MAKE KNOWLEDGE STICK</div><h1>The Practice Arcade ⚡</h1><p>Play short challenges, collect XP, and make every word unforgettable.</p></div>
@@ -184,6 +245,7 @@
         <button class="mode-card" style="--mode-bg:#eee9ff" data-action="start-quiz" data-mode="choice"><span class="mode-icon">🧠</span><h3>Quick Quiz</h3><p>Choose the correct meaning and build your streak.</p><span class="arrow">↗</span></button>
         <button class="mode-card" style="--mode-bg:#e6fbf3" data-action="start-quiz" data-mode="review"><span class="mode-icon">🔁</span><h3>Smart Review</h3><p>${due().length ? `${due().length} words ready to revisit.` : 'A practice session until words are due.'}</p><span class="arrow">↗</span></button>
         <button class="mode-card" style="--mode-bg:#fff0df" data-action="start-quiz" data-mode="spell"><span class="mode-icon">✏️</span><h3>Spelling Bee</h3><p>Turn meanings into correctly spelled words.</p><span class="arrow">↗</span></button>
+        <button class="mode-card" style="--mode-bg:#e7f4ff" data-action="start-quiz" data-mode="listen"><span class="mode-icon">🎧</span><h3>Listening Lab</h3><p>Hear a word at normal or slow speed, then type it.</p><span class="arrow">↗</span></button>
         <button class="mode-card" style="--mode-bg:#ffeaf1" data-action="start-match"><span class="mode-icon">🧩</span><h3>Match Mania</h3><p>Pair five words with their meanings as fast as you can.</p><span class="arrow">↗</span></button>
       </div><div class="boss-banner"><div class="boss-crown">👑</div><div><span class="eyebrow">THE ULTIMATE CHALLENGE</span><h2>Boss Battle</h2><p>15 tricky questions. Score 12 or more to claim an 80-gem crown reward!</p><button class="btn btn-white" data-action="start-quiz" data-mode="boss">Face the boss ⚡</button></div><span class="boss-dragon" aria-hidden="true">🐉</span></div>
       <div class="section-heading"><div><h2>🎁 Challenge rewards</h2><p>Every attempt helps you learn</p></div></div>
@@ -195,9 +257,9 @@
       : curriculumLessons.filter(lesson => lesson.level === ui.curriculumLevel).flatMap(lesson => lesson.words);
     const candidates = mode === 'review' ? (engine.dueWords(progress, lessonWords).length ? engine.dueWords(progress,lessonWords) : lessonWords.filter(w => wordSeen(w.id))) : lessonWords;
     const source = candidates.length ? candidates : lessonWords;
-    const questions = mode === 'spell' ? engine.shuffle(source).slice(0, 8).map(word => ({word,answer:word.term})) : engine.makeQuiz(source, words, mode === 'boss' ? 15 : 10);
+    const questions = ['spell','listen'].includes(mode) ? engine.shuffle(source).slice(0, 8).map(word => ({word,answer:word.term})) : engine.makeQuiz(source, words, mode === 'boss' ? 15 : 10);
     ui.quiz = { mode, questions, index: 0, score: 0, answered: null, response: '', hintUsed: false, eliminated: [] };
-    ui.screen = mode === 'spell' ? 'spell' : 'quiz';
+    ui.screen = ['spell','listen'].includes(mode) ? 'spell' : 'quiz';
     render(true);
   }
   function quiz() {
@@ -215,8 +277,9 @@
     const q = ui.quiz, question = q.questions[q.index];
     const answered = q.answered !== null;
     const correct = q.answered === question.answer;
-    return `<div class="lesson-stage">${stageHeader('Spelling Bee', `✏️ ${q.score} correct so far`,q.index + 1,q.questions.length)}
-      <div class="quiz-prompt"><span class="small">SPELL THE WORD THAT MEANS</span><h2 dir="auto" style="font-size:clamp(23px,4.2vw,33px)">${esc(question.word.meaning)}</h2><p class="muted" style="font-style:italic">${esc((question.word.example || '').replace(new RegExp(question.word.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),'ig'), '______'))}</p></div>
+    const listening = q.mode === 'listen';
+    return `<div class="lesson-stage">${stageHeader(listening ? 'Listening Lab 🎧' : 'Spelling Bee', `✏️ ${q.score} correct so far`,q.index + 1,q.questions.length)}
+      ${listening ? `<div class="quiz-prompt"><span class="small">LISTEN & TYPE THE ENGLISH WORD</span><h2>Hear it. Remember it. Spell it.</h2><div class="listen-buttons"><button class="btn btn-primary" data-action="speak" data-id="${esc(question.word.id)}">🔊 Play word</button><button class="btn btn-outline" data-action="speak-slow" data-id="${esc(question.word.id)}">🐢 Play slowly</button></div><p class="muted small">Use the audio buttons as often as you like. Headphones are optional.</p></div>` : `<div class="quiz-prompt"><span class="small">SPELL THE WORD THAT MEANS</span><h2 dir="auto" style="font-size:clamp(23px,4.2vw,33px)">${esc(question.word.meaning)}</h2><p class="muted" style="font-style:italic">${esc((question.word.example || '').replace(new RegExp(question.word.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),'ig'), '______'))}</p></div>`}
       <input type="text" autocapitalize="off" autocomplete="off" spellcheck="false" data-role="spell-input" class="search spelling-input" aria-label="Spell the word" placeholder="Type the word..." value="${esc(q.response)}" ${answered ? 'disabled' : ''}/>
       ${answered ? `<div class="feedback ${correct ? '' : 'wrong'}">${correct ? '🎉 Perfect spelling!' : `💡 Correct spelling: ${esc(question.answer)}`}${nextQuestionButton(q)}</div>` : `<div class="helper-row"><span>${q.hintUsed ? `💡 Starts with “${esc(question.answer[0].toUpperCase())}” · ${question.answer.length} letters` : `💎 ${progress.coins} gems`}</span><button class="hint-button" data-action="spell-hint" ${q.hintUsed || progress.coins < 8 ? 'disabled' : ''}>${q.hintUsed ? 'Hint used' : '✨ Letter hint · 8 gems'}</button></div><button class="btn btn-primary btn-full btn-large mt-3" data-action="check-spelling">Check spelling ✓</button>`}</div>`;
   }
@@ -255,7 +318,7 @@
   function collectionRows() {
     const result = filteredWords();
     const visible = result.slice(0,ui.collectionLimit);
-    return result.length ? `<p class="collection-count">Showing ${visible.length.toLocaleString()} of ${result.length.toLocaleString()} matching words</p><div class="collection-grid">${visible.map(w => `<div class="word-row"><span class="word-emoji">${lessonById(w.lessonId).emoji}</span><div class="copy"><h3>${esc(w.term)} ${engine.isMastered(progress,w.id) ? '🌟' : ''}</h3><p dir="auto">${esc(w.meaning)}</p><small>${esc(lessonById(w.lessonId).title)} · ${wordSeen(w.id) ? 'Discovered' : 'New'}</small></div><button class="heart-btn" data-action="favorite" data-id="${esc(w.id)}" aria-label="${progress.favorites.includes(w.id) ? 'Unsave' : 'Save'} ${esc(w.term)}">${progress.favorites.includes(w.id) ? '❤️' : '🤍'}</button></div>`).join('')}</div>${visible.length < result.length ? `<button class="btn btn-outline btn-full mt-3" data-action="more-words">Load 60 more words ↓</button>` : ''}` : `<div class="empty"><span class="big">🔎</span><h3>No words found</h3><p>Try a different search, or discover a new word in the lessons.</p></div>`;
+    return result.length ? `<p class="collection-count">Showing ${visible.length.toLocaleString()} of ${result.length.toLocaleString()} matching words</p><div class="collection-grid">${visible.map(w => `<div class="word-row"><span class="word-emoji">${wordArt(w) || lessonById(w.lessonId).emoji}</span><div class="copy"><h3>${esc(w.term)} ${engine.isMastered(progress,w.id) ? '🌟' : ''}</h3><p dir="auto">${esc(w.meaning)}</p><small>${esc(lessonById(w.lessonId).title)} · ${wordSeen(w.id) ? 'Discovered' : 'New'}</small></div><button class="heart-btn" data-action="favorite" data-id="${esc(w.id)}" aria-label="${progress.favorites.includes(w.id) ? 'Unsave' : 'Save'} ${esc(w.term)}">${progress.favorites.includes(w.id) ? '❤️' : '🤍'}</button></div>`).join('')}</div>${visible.length < result.length ? `<button class="btn btn-outline btn-full mt-3" data-action="more-words">Load 60 more words ↓</button>` : ''}` : `<div class="empty"><span class="big">🔎</span><h3>No words found</h3><p>Try a different search, or discover a new word in the lessons.</p></div>`;
   }
   function collection() {
     return `<div class="page-heading"><div class="eyebrow">YOUR PERSONAL WORD BANK</div><h1>My Word Collection 📖</h1><p>Search ${words.length.toLocaleString()} words, save favorites, and revisit your discoveries.</p></div>
@@ -271,7 +334,7 @@
     const maxActivity = Math.max(10,...week.map(d=>d.words));
     const accuracy = week.reduce((sum,d)=>sum+d.words,0) ? Math.round(week.reduce((sum,d)=>sum+d.correct,0) / week.reduce((sum,d)=>sum+d.words,0) * 100) : 0;
     return `<div class="page-heading"><div class="eyebrow">THE EXPLORER'S CORNER</div><h1>My Adventure Profile 👤</h1><p>Every step forward deserves to be celebrated.</p></div>
-      <div class="level-banner"><div style="flex:1"><span class="hero-tag">LEVEL ${level.level} EXPLORER</span><h2>You've earned ${progress.xp} XP!</h2><p>${mastered()} words mastered · ${currentStreak()} day streak · ${progress.coins} gems</p><div class="level-progress">${progressBar(level.earned,level.target)}<small>${level.earned} / ${level.target} XP to next level</small></div></div><img class="profile-lumi" src="lumi-mascot.webp" alt="Lumi celebrates your progress" /></div>
+      <div class="level-banner"><div style="flex:1"><span class="hero-tag">LEVEL ${level.level} EXPLORER</span><h2>You've earned ${progress.xp} XP!</h2><p>${mastered()} words mastered · ${Object.keys(progress.storyFinishes).length} stories completed · ${currentStreak()} day streak · ${progress.coins} gems</p><div class="level-progress">${progressBar(level.earned,level.target)}<small>${level.earned} / ${level.target} XP to next level</small></div></div><img class="profile-lumi" src="lumi-mascot.webp" alt="Lumi celebrates your progress" /></div>
       <div class="section-heading"><div><h2>📊 Learning momentum</h2><p>Your last seven days at a glance</p></div></div><div class="surface"><div class="weekly-bars">${week.map(d=>`<div class="weekly-day"><div class="weekly-column"><i style="height:${Math.max(7,Math.round(d.words/maxActivity*100))}%" title="${d.words} words"></i></div><strong>${d.label}</strong><small>${d.words}</small></div>`).join('')}</div><div class="weekly-summary"><span>🎯 ${accuracy}% accuracy this week</span><span>📚 ${week.reduce((sum,d)=>sum+d.words,0)} word practices</span></div></div>
       <div class="section-heading"><div><h2>✨ Your achievements</h2><p>${badges.filter(b => b.earned).length} of ${badges.length} badges unlocked</p></div></div><div class="badge-grid">${badges.map(b => `<div class="badge-card ${b.earned ? '' : 'locked'}"><span class="big">${b.icon}</span><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p></div>`).join('')}</div>
       <div class="section-heading"><h2>⚙️ My settings</h2></div><div class="surface"><label class="strong" for="name-field">Explorer name</label><div class="section-tools mt-2 mb-0"><input id="name-field" class="search" style="flex:1;min-width:0" maxlength="24" value="${esc(progress.name)}" /><button class="btn btn-primary" data-action="save-name">Save</button></div>
@@ -281,13 +344,19 @@
       <p class="small muted mt-3 mb-0">Your name and learning progress stay on this device. No account required.</p></div>`;
   }
   function render(scroll = false) {
-    const screens = {home,learn,lesson,'lesson-finish':lessonFinish,practice,quiz,spell:spelling,match, result, collection, profile};
+    const screens = {home,learn,lesson,'lesson-finish':lessonFinish,story,'story-finish':storyFinish,practice,quiz,spell:spelling,match, result, collection, profile};
     root.innerHTML = ui.screen === 'welcome' ? welcome() : `<div class="shell">${sidebar()}<div class="workspace">${topbar()}<main id="main-content">${(screens[ui.screen] || home)()}</main></div></div>${bottomnav()}`;
     if (document.body.classList) document.body.classList.toggle('reduce-motion', progress.reduceMotion);
     if (scroll) window.scrollTo({top:0,behavior:'instant'});
   }
-  function go(name) { ui.screen = name; render(true); }
+  function go(name) { stopSpeech(); ui.screen = name; render(true); }
   function openLesson(id) { ui.lessonId = id; ui.index = 0; ui.flipped = false; go('lesson'); }
+  function openStory(id) {
+    const selected = lessonById(id);
+    if (!selected.story) { toast('A reading adventure is available for the six curriculum levels.'); return; }
+    ui.lessonId = id;
+    go('story');
+  }
   function study(known) {
     const selected = lessonById(ui.lessonId), word = selected.words[ui.index];
     engine.recordWord(progress,word.id,known); save(); playSound(known ? 'success' : 'wrong');
@@ -365,16 +434,35 @@
     }
     save(); playSound('success'); render();
   }
-  function speak(id) {
-    const word = byId.get(id); if (!word) return;
+  function speakText(text, rate = .85) {
+    if (!text) return;
     try {
-      if (window.VocabularyNative?.speak) window.VocabularyNative.speak(word.term);
-      else if ('speechSynthesis' in window) { speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(word.term); utterance.lang = 'en-US'; utterance.rate = .85; speechSynthesis.speak(utterance); }
-      else toast('Speech is not available on this device.');
+      if (window.VocabularyNative?.speakText) window.VocabularyNative.speakText(text,rate);
+      else if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US'; utterance.rate = rate;
+        speechSynthesis.speak(utterance);
+      } else toast('Speech is not available on this device.');
     } catch (_) { toast('Speech is not available on this device.'); }
   }
+  function speak(id, slow = false) {
+    const word = byId.get(id); if (!word) return;
+    speakText(word.term,slow ? .62 : .88);
+  }
+  function speakStory(slow) {
+    const current = lessonById(ui.lessonId);
+    if (current.story) speakText(current.story.paragraphs.join(' '),slow ? .68 : .92);
+  }
+  function stopSpeech() {
+    try {
+      if (window.VocabularyNative?.stopSpeech) window.VocabularyNative.stopSpeech();
+      else if ('speechSynthesis' in window) speechSynthesis.cancel();
+    } catch (_) { /* Speech is optional. */ }
+  }
   function back() {
-    if (['lesson','lesson-finish'].includes(ui.screen)) { go('learn'); return true; }
+    stopSpeech();
+    if (['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) { go('learn'); return true; }
     if (['quiz','spell','match','result'].includes(ui.screen)) { go('practice'); return true; }
     if (ui.screen !== 'home') { go('home'); return true; }
     return false;
@@ -399,10 +487,20 @@
       case 'choose-level': ui.exploreMode = 'curriculum'; ui.curriculumLevel = target.dataset.level; render(); break;
       case 'choose-bonus': ui.exploreMode = 'bonus'; render(); break;
       case 'open-lesson': openLesson(id); break;
+      case 'open-story': openStory(id); break;
+      case 'finish-story': finishStory(); break;
+      case 'show-word': {
+        const word = byId.get(id);
+        if (word) toast(`${word.term} · ${word.meaning}`);
+        break;
+      }
       case 'flip': ui.flipped = !ui.flipped; render(); break;
       case 'study': study(target.dataset.known === 'yes'); break;
       case 'favorite': favorite(id); break;
       case 'speak': speak(id); break;
+      case 'speak-slow': speak(id,true); break;
+      case 'speak-story': speakStory(target.dataset.speed === 'slow'); break;
+      case 'stop-speech': stopSpeech(); break;
       case 'start-quiz': startQuiz(target.dataset.mode, id); break;
       case 'quiz-hint': useHint('choice'); break;
       case 'spell-hint': useHint('spell'); break;
@@ -439,6 +537,12 @@
       if (result) result.innerHTML = collectionRows();
     }
     if (event.target.dataset.role === 'spell-input' && ui.quiz) ui.quiz.response = event.target.value;
+    if (event.target.dataset.role === 'story-answer') {
+      const selected = lessonById(ui.lessonId);
+      progress.storyResponses[selected.id] ||= {};
+      progress.storyResponses[selected.id][event.target.dataset.index] = event.target.value;
+      save();
+    }
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Enter' && event.target.dataset.role === 'spell-input') checkSpelling();

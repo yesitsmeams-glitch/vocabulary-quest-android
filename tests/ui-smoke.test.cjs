@@ -50,6 +50,16 @@ test('app can render every main screen and play learning flows without a browser
   click({action:'learn-view',view:'grid'});
   assert.match(appRoot.innerHTML,/All Worlds/);
 
+  click({action:'open-story',id:'a1-set-01'});
+  assert.match(appRoot.innerHTML,/The Great Animal Concert/);
+  assert.match(appRoot.innerHTML,/What did the cow find/);
+  assert.match(appRoot.innerHTML,/reading-hero/);
+  assert.match(appRoot.innerHTML,/illustrations\/a1-01.webp/);
+  for (let i=0;i<4;i++) listeners.input({target:{dataset:{role:'story-answer',index:String(i)},value:`My answer ${i+1}`}});
+  click({action:'finish-story'});
+  assert.match(appRoot.innerHTML,/Reading adventure complete/);
+  assert.equal(fakeWindow.VQ.getProgress().storyFinishes['a1-set-01'],true);
+
   click({action:'open-lesson',id:'nature'});
   assert.match(appRoot.innerHTML,/habitat/i);
   click({action:'flip'});
@@ -78,6 +88,9 @@ test('app can render every main screen and play learning flows without a browser
   assert.match(appRoot.innerHTML,/SPELL THE WORD THAT MEANS/);
   click({action:'check-spelling'});
   assert.match(appRoot.innerHTML,/Correct spelling|Perfect spelling/);
+  click({action:'start-quiz',mode:'listen'});
+  assert.match(appRoot.innerHTML,/Listening Lab/);
+  assert.match(appRoot.innerHTML,/Play slowly/);
 
   click({action:'start-match'});
   assert.match(appRoot.innerHTML,/Find the perfect pairs/);
