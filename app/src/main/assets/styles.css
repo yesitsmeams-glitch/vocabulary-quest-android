@@ -332,3 +332,23 @@ button:disabled { cursor: default; opacity: .55; }
   .mystery-hero { padding: 22px 18px; }.mystery-hero-icon { font-size: 44px; padding: 0; }.mystery-steps { gap: 5px; }.mystery-step { flex-direction: column; gap: 4px; padding: 9px 4px; text-align: center; font-size: 9px; }.mystery-clue { padding: 21px 15px; }.mystery-clue h2 { font-size: 21px; }.mystery-text-options { gap: 9px; }.mystery-text-option { font-size: 12px; gap: 7px; padding: 9px; }.mystery-translation { font-size: 18px; }.mystery-finale { padding: 27px 20px; }
 }
 @media (max-width: 380px) { .atlas-intro img { opacity: .55; }.atlas-intro h1,.atlas-intro p { max-width: 92%; position: relative; z-index: 1; }.atlas-stats { max-width: 100%; }.world-card-bottom { font-size: 9px; }.district-stop strong { font-size: 10px; } }
+
+/* v5.1 · Hi-resolution, clean-cut picture presentation */
+.card-orb.card-orb-hd { width: 202px; height: 202px; border-radius: 42px; background: radial-gradient(circle,#fff,#f8f5ff); box-shadow: 0 12px 30px #6556c629,inset 0 0 0 1px #eee9ff; margin-bottom: 20px; }
+.flash-art { display: block; width: 176px; height: 176px; flex: 0 0 176px; background-repeat: no-repeat; }
+.detective-art { width: 120px; height: 120px; flex: 0 0 120px; border-radius: 21px; background-color: transparent; box-shadow: none; }
+.picture-choice { min-height: 208px; background: linear-gradient(150deg,#fff,#fbfaff); }
+.picture-choice.correct { background: linear-gradient(150deg,#ecfff7,#daf8e9); }
+.picture-choice.wrong { background: #fff0f1; }
+.picture-choice .picture-caption { font-size: 12px; font-weight: 950; }
+.world-tile { background-color: #ffffffc5; }
+.lesson-preview-stack { display: flex; align-items: center; justify-content: center; gap: 0; height: 100%; isolation: isolate; }
+.lesson-preview-stack .world-tile { position: relative; transform: scale(.86) rotate(-7deg); margin-right: -14px; box-shadow: 0 5px 13px #372b6035; }
+.lesson-preview-stack .world-tile:nth-child(2) { z-index: 2; transform: scale(1.08) rotate(5deg); }
+.lesson-preview-stack .world-tile:nth-child(3) { transform: scale(.9) rotate(9deg); margin-right: 0; }
+@media (max-width: 750px) {
+  .card-orb.card-orb-hd { width: 188px; height: 188px; }
+  .flash-art { transform: scale(.96); }
+  .picture-choice { min-height: 183px; padding: 15px 4px 10px; }
+  .detective-art { max-width: none; }
+}

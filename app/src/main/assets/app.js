@@ -42,7 +42,8 @@
     if (!word.level || !word.number) return '';
     const index = (word.number - 1) % 25;
     const set = String(Math.ceil(word.number / 25)).padStart(2,'0');
-    return `<span class="${className}" role="img" aria-label="${secret ? 'Hidden picture clue' : `Illustration: ${esc(word.term)}`}" style="background-image:url('illustrations/${word.level.toLowerCase()}-${set}.webp');background-position:-${(index%5)*72}px -${Math.floor(index/5)*72}px"></span>`;
+    const tile = className.includes('flash-art') ? 176 : className.includes('detective-art') ? 120 : 72;
+    return `<span class="${className}" role="img" aria-label="${secret ? 'Hidden picture clue' : `Illustration: ${esc(word.term)}`}" style="background-image:url('illustrations-hd/${word.level.toLowerCase()}-${set}.webp');background-size:${tile*5}px ${tile*5}px;background-position:-${(index%5)*tile}px -${Math.floor(index/5)*tile}px"></span>`;
   }
   function storyHighlights(paragraph, lesson) {
     const dictionary = new Map(lesson.words.map(w => [w.term.toLowerCase(),w]));
@@ -134,8 +135,9 @@
   function progressBar(n, total, mint = false) { return `<div class="progress-track"><div class="progress-fill ${mint ? 'mint' : ''}" style="width:${percent(n,total)}%"></div></div>`; }
   function lessonCard(lesson) {
     const seen = countSeen(lesson);
+    const previews = lesson.level ? `<div class="lesson-preview-stack">${[lesson.words[2],lesson.words[11],lesson.words[20]].map(word=>wordArt(word,'world-tile')).join('')}</div>` : `<span>${lesson.emoji}</span>`;
     return `<article class="lesson-card" style="--accent:${lesson.color}"><button class="lesson-card-main" data-action="open-lesson" data-id="${lesson.id}" aria-label="Study words: ${esc(lesson.title)}">
-      <div class="lesson-illustration"><span>${lesson.emoji}</span></div><div class="lesson-card-info"><h3>${esc(lesson.title)}</h3><p>${esc(lesson.subtitle)}</p>
+      <div class="lesson-illustration">${previews}</div><div class="lesson-card-info"><h3>${esc(lesson.title)}</h3><p>${esc(lesson.subtitle)}</p>
       <div class="lesson-footer"><span>${lesson.words.length} words</span><strong>${seen === lesson.words.length ? '✓ Complete' : `${seen}/${lesson.words.length} discovered`}</strong></div>
       <div class="lesson-bar"><i style="width:${percent(seen,lesson.words.length)}%"></i></div></div></button>${lesson.story ? `<button class="lesson-read-button" data-action="open-story" data-id="${lesson.id}">📖 ${progress.storyFinishes[lesson.id] ? 'Read again ✓' : 'Read the story'} <span>→</span></button>` : ''}</article>`;
   }
@@ -210,7 +212,7 @@
     return `<div class="lesson-stage">${stageHeader(current.title, 'Discover · Flip · Remember', ui.index + 1, current.words.length)}
       <p class="flip-help">${ui.flipped ? 'A little knowledge goes a long way 🌟' : 'Tap the card to reveal the meaning ✨'}</p>
       <button class="flashcard ${ui.flipped ? 'flipped' : ''}" data-action="flip" aria-label="Flip vocabulary card">
-        <span class="card-orb">${word.level ? wordArt(word) : ui.flipped ? '💡' : current.emoji}</span>
+        <span class="card-orb ${word.level ? 'card-orb-hd' : ''}">${word.level ? wordArt(word,'vocab-art flash-art') : ui.flipped ? '💡' : current.emoji}</span>
         ${ui.flipped ? `<span class="word-type">${word.level ? 'ARABIC MEANING' : 'THE MEANING'}</span><p class="definition" dir="auto">${esc(word.meaning)}</p>${word.example ? `<p class="example" dir="auto">“${esc(word.example)}”</p>` : ''}` : `<h2>${esc(word.term)}</h2><span class="word-type">TAP TO DISCOVER</span>`}
       </button><div class="lesson-actions">
         <button class="btn btn-outline" data-action="speak" data-id="${esc(word.id)}">🔊 Listen</button>

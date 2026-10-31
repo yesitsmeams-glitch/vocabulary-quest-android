@@ -39,6 +39,11 @@ test('PDF-derived curriculum includes exactly 5,400 entries in six complete lear
       const header = fs.readFileSync(picture).subarray(0,12);
       assert.equal(header.toString('ascii',0,4),'RIFF');
       assert.equal(header.toString('ascii',8,12),'WEBP');
+      const hdPicture = path.join(__dirname,`../app/src/main/assets/illustrations-hd/${level.toLowerCase()}-${String(lesson.set).padStart(2,'0')}.webp`);
+      assert.ok(fs.statSync(hdPicture).size > 5000,`Missing premium HD cutout atlas for ${lesson.id}`);
+      const hdHeader = fs.readFileSync(hdPicture).subarray(0,12);
+      assert.equal(hdHeader.toString('ascii',0,4),'RIFF');
+      assert.equal(hdHeader.toString('ascii',8,12),'WEBP');
       lesson.words.forEach((word,index) => {
         const number = (lesson.set-1)*25+index+1;
         assert.equal(word.id,`${level.toLowerCase()}:${String(number).padStart(3,'0')}`);

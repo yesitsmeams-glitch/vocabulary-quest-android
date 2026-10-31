@@ -62,7 +62,7 @@ test('app can render every main screen and play learning flows without a browser
   assert.match(appRoot.innerHTML,/The Great Animal Concert/);
   assert.match(appRoot.innerHTML,/What did the cow find/);
   assert.match(appRoot.innerHTML,/reading-hero/);
-  assert.match(appRoot.innerHTML,/illustrations\/a1-01.webp/);
+  assert.match(appRoot.innerHTML,/illustrations-hd\/a1-01.webp/);
   for (let i=0;i<4;i++) listeners.input({target:{dataset:{role:'story-answer',index:String(i)},value:`My answer ${i+1}`}});
   click({action:'finish-story'});
   assert.match(appRoot.innerHTML,/Reading adventure complete/);
@@ -106,6 +106,7 @@ test('app can render every main screen and play learning flows without a browser
   click({action:'start-picture'});
   assert.match(appRoot.innerHTML,/THE PICTURE CASE FILE/);
   assert.match(appRoot.innerHTML,/Picture Detective/);
+  assert.match(appRoot.innerHTML,/background-size:600px 600px/);
   for (let i=0;i<8;i++) {
     const match = appRoot.innerHTML.match(/data-action="picture-answer" data-id="([^"]+)"/);
     assert.ok(match);
