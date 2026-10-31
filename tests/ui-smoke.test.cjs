@@ -11,10 +11,11 @@ test('app can render every main screen and play learning flows without a browser
   const appRoot = {innerHTML: ''};
   const results = {innerHTML: ''};
   const fakeInput = {value: 'curious'};
+  const fakeMysteryInput = {value:''};
   const store = new Map();
   const fakeDocument = {
     getElementById(id) { if (id === 'app') return appRoot; if (id === 'collection-results') return results; if (id === 'name-field' || id === 'welcome-name') return {value:'Word Wizard'}; return null; },
-    querySelector(selector) { if (selector === '[data-role="spell-input"]') return fakeInput; return null; },
+    querySelector(selector) { if (selector === '[data-role="spell-input"]') return fakeInput; if (selector === '[data-role="mystery-input"]') return fakeMysteryInput; return null; },
     addEventListener(type,fn) { listeners[type] = fn; },
     createElement() { return {textContent:'',className:'',remove(){}}; },
     body: {appendChild() {}}
@@ -41,14 +42,21 @@ test('app can render every main screen and play learning flows without a browser
     assert.match(appRoot.innerHTML, /<main id="main-content">/);
   }
   click({action:'nav',to:'learn'});
+  assert.match(appRoot.innerHTML,/THE LIVING WORLD ATLAS/);
+  assert.match(appRoot.innerHTML,/Celestial Library/);
+  click({action:'enter-world',level:'A1'});
   assert.match(appRoot.innerHTML,/36 READING ADVENTURES/);
   assert.match(appRoot.innerHTML,/900 words/);
+  assert.match(appRoot.innerHTML,/Welcome Gate/);
+  click({action:'choose-district',index:'5'});
+  assert.match(appRoot.innerHTML,/The Grand Summit/);
+  assert.match(appRoot.innerHTML,/Adventures 31–36/);
   click({action:'choose-level',level:'C2'});
   assert.match(appRoot.innerHTML,/C2 · 36 READING ADVENTURES/);
   click({action:'choose-bonus'});
   assert.match(appRoot.innerHTML,/BONUS WORD WORLDS/);
   click({action:'learn-view',view:'grid'});
-  assert.match(appRoot.innerHTML,/All Worlds/);
+  assert.match(appRoot.innerHTML,/▦ Cards/);
 
   click({action:'open-story',id:'a1-set-01'});
   assert.match(appRoot.innerHTML,/The Great Animal Concert/);
@@ -94,6 +102,45 @@ test('app can render every main screen and play learning flows without a browser
 
   click({action:'start-match'});
   assert.match(appRoot.innerHTML,/Find the perfect pairs/);
+
+  click({action:'start-picture'});
+  assert.match(appRoot.innerHTML,/THE PICTURE CASE FILE/);
+  assert.match(appRoot.innerHTML,/Picture Detective/);
+  for (let i=0;i<8;i++) {
+    const match = appRoot.innerHTML.match(/data-action="picture-answer" data-id="([^"]+)"/);
+    assert.ok(match);
+    click({action:'picture-answer',id:match[1]});
+    assert.match(appRoot.innerHTML,/Next picture|See detective results/);
+    click({action:'picture-answer',id:match[1]}); // Answer cannot be scored twice.
+    click({action:'next-picture'});
+  }
+  assert.match(appRoot.innerHTML,/Case closed|Master Picture Detective/);
+  assert.equal(fakeWindow.VQ.getProgress().pictureWins,1);
+
+  click({action:'start-mystery',level:'A1'});
+  assert.match(appRoot.innerHTML,/Decode the note/);
+  const mystery = engine.makeDailyMystery(fakeWindow.VQ_CURRICULUM.filter(l=>l.level==='A1').flatMap(l=>l.words),engine.dayKey(),'A1');
+  click({action:'mystery-answer',id:mystery.target.id});
+  assert.match(appRoot.innerHTML,/first clue is decoded/);
+  click({action:'next-mystery'});
+  assert.match(appRoot.innerHTML,/Find the picture clue/);
+  click({action:'mystery-answer',id:mystery.target.id});
+  click({action:'next-mystery'});
+  assert.match(appRoot.innerHTML,/Spell the password/);
+  fakeMysteryInput.value = mystery.target.term;
+  click({action:'mystery-check-spelling'});
+  click({action:'next-mystery'});
+  assert.match(appRoot.innerHTML,/You cracked the case/);
+  assert.ok(fakeWindow.VQ.getProgress().mysteryWins[mystery.key]);
+  const xpAfterMystery = fakeWindow.VQ.getProgress().xp;
+  click({action:'start-mystery',level:'A1'});
+  click({action:'mystery-answer',id:mystery.target.id});
+  click({action:'next-mystery'});
+  click({action:'mystery-answer',id:mystery.target.id});
+  click({action:'next-mystery'});
+  click({action:'mystery-check-spelling'});
+  click({action:'next-mystery'});
+  assert.equal(fakeWindow.VQ.getProgress().xp,xpAfterMystery);
 
   click({action:'nav',to:'collection'});
   assert.match(appRoot.innerHTML,/5,550 words/);

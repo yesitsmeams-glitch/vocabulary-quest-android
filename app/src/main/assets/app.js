@@ -4,6 +4,15 @@
   const curriculumLessons = window.VQ_CURRICULUM || [];
   const lessons = [...curriculumLessons, ...bonusLessons];
   const levels = ['A1','A2','B1','B2','C1','C2'];
+  const worldMeta = {
+    A1:{name:'Sunny Village',subtitle:'Where every adventure begins',icon:'🏡',colors:['#ffbb65','#f57773'],landmark:'🌻'},
+    A2:{name:'Emerald Forest',subtitle:'A thousand little discoveries',icon:'🌳',colors:['#69d7aa','#1bafa2'],landmark:'🦋'},
+    B1:{name:'Discovery City',subtitle:'A world full of curious minds',icon:'🏙️',colors:['#8cc8ff','#6883ee'],landmark:'🚀'},
+    B2:{name:'Mystery Isles',subtitle:'Brave words for bold explorers',icon:'🏝️',colors:['#c2a3ff','#9065d9'],landmark:'🧜'},
+    C1:{name:'Idea Observatory',subtitle:'Look beyond the ordinary',icon:'🔭',colors:['#ffc77d','#e78b83'],landmark:'🌠'},
+    C2:{name:'Celestial Library',subtitle:'Unlock the universe of language',icon:'🌌',colors:['#ac95f2','#6f6ccf'],landmark:'🪐'}
+  };
+  const districtNames = ['Welcome Gate','Wonder Gardens','Puzzle Plaza','Story Harbor','Skyward Trail','The Grand Summit'];
   const engine = window.VQEngine;
   const words = engine.allWords(lessons);
   const byId = new Map(words.map(word => [word.id, word]));
@@ -14,8 +23,8 @@
   try { progress = engine.normalizeProgress(JSON.parse(localStorage.getItem(storageKey))); }
   catch (_) { progress = engine.defaultProgress(); }
   const ui = { screen: progress.onboarded ? 'home' : 'welcome', lessonId: lessons[0].id, index: 0,
-    flipped: false, quiz: null, result: null, match: null, storyRevealed: true,
-    learnView: 'path', exploreMode: 'curriculum', curriculumLevel: 'A1',
+    flipped: false, quiz: null, result: null, match: null, picture: null, mystery: null, storyRevealed: true,
+    learnView: 'path', exploreMode: 'worlds', curriculumLevel: 'A1', district: 0,
     onboardGoal: 10, onboardName: '',
     collectionQuery: '', collectionFilter: 'all', collectionLevel: 'all', collectionLimit: 60,
     toast: '', toastTimeout: 0 };
@@ -29,11 +38,11 @@
     catch (_) { toast('Your device could not save progress. Check available storage.'); }
   }
   function lessonById(id) { return lessonMap.get(id) || lessons[0]; }
-  function wordArt(word, className = 'vocab-art') {
+  function wordArt(word, className = 'vocab-art', secret = false) {
     if (!word.level || !word.number) return '';
     const index = (word.number - 1) % 25;
     const set = String(Math.ceil(word.number / 25)).padStart(2,'0');
-    return `<span class="${className}" role="img" aria-label="Illustration: ${esc(word.term)}" style="background-image:url('illustrations/${word.level.toLowerCase()}-${set}.webp');background-position:-${(index%5)*72}px -${Math.floor(index/5)*72}px"></span>`;
+    return `<span class="${className}" role="img" aria-label="${secret ? 'Hidden picture clue' : `Illustration: ${esc(word.term)}`}" style="background-image:url('illustrations/${word.level.toLowerCase()}-${set}.webp');background-position:-${(index%5)*72}px -${Math.floor(index/5)*72}px"></span>`;
   }
   function storyHighlights(paragraph, lesson) {
     const dictionary = new Map(lesson.words.map(w => [w.term.toLowerCase(),w]));
@@ -98,7 +107,7 @@
   }
   function nav(name, icon, label) {
     const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) ||
-      (name === 'practice' && ['quiz','spell','match','result'].includes(ui.screen));
+      (name === 'practice' && ['quiz','spell','match','picture','mystery','result'].includes(ui.screen));
     return `<button type="button" class="nav-link ${active ? 'active' : ''}" data-action="nav" data-to="${name}"><span class="nav-emoji">${icon}</span>${label}</button>`;
   }
   const navItems = [['home','🏠','Home'],['learn','🗺️','Explore'],['practice','⚡','Practice'],['collection','📖','My Words'],['profile','👤','Profile']];
@@ -118,7 +127,7 @@
   }
   function bottomnav() {
     return `<nav class="bottom-nav" aria-label="Mobile navigation">${navItems.map(([name,icon,label]) => {
-      const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) || (name === 'practice' && ['quiz','spell','match','result'].includes(ui.screen));
+      const active = ui.screen === name || (name === 'learn' && ['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) || (name === 'practice' && ['quiz','spell','match','picture','mystery','result'].includes(ui.screen));
       return `<button aria-label="${label}" ${active ? 'aria-current="page"' : ''} class="${active ? 'active':''}" data-action="nav" data-to="${name}"><span>${icon}</span>${label}</button>`;
     }).join('')}</nav>`;
   }
@@ -151,27 +160,45 @@
         ${progressBar(daily, progress.dailyGoal)}<p class="daily-motivation">${daily >= progress.dailyGoal ? 'Amazing! You completed your daily mission. 🎉' : `${progress.dailyGoal - daily} more discoveries to complete your mission!`}</p>
         <div class="mini-grid"><div class="mini-stat"><span>📖</span><strong>${learned}</strong><small>DISCOVERED</small></div><div class="mini-stat"><span>⭐</span><strong>${progress.xp}</strong><small>TOTAL XP</small></div><div class="mini-stat"><span>🏆</span><strong>${mastered()}</strong><small>MASTERED</small></div></div>
         </div><div class="surface challenge-card"><span class="eyebrow" style="color:#e18c29">DAILY BOOST</span><h3>Brain training,<br>but make it fun!</h3><p>${due().length ? `${due().length} words are ready for a smart review.` : 'Try a quick challenge and earn shiny gems.'}</p><button class="btn btn-primary mt-2" data-action="start-quiz" data-mode="${due().length ? 'review':'choice'}">${due().length ? 'Review now' : 'Start a quiz'} →</button></div></div>
+      <div class="mystery-spotlight"><div class="mystery-spotlight-icon">🗝️</div><div><span class="eyebrow">A NEW SECRET EVERY DAY</span><h2>${progress.mysteryWins[`${engine.dayKey()}:${ui.curriculumLevel}`] ? 'Another mystery solved! ✨' : 'Lumi found a mysterious clue…'}</h2><p>Three hidden clues. One secret word. ${progress.mysteryWins[`${engine.dayKey()}:${ui.curriculumLevel}`] ? "Replay today's puzzle or explore another level." : 'Unlock your daily treasure for 70 XP!'}</p></div><button class="btn btn-white" data-action="start-mystery">${progress.mysteryWins[`${engine.dayKey()}:${ui.curriculumLevel}`] ? 'Play again ↻' : 'Solve the mystery →'}</button></div>
       <div class="section-heading"><div><h2>🎁 Daily treasure quests</h2><p>Complete little missions and collect gems</p></div><span class="quest-reset">Resets every day ✨</span></div>
       <div class="mission-grid">${engine.missionState(progress).map(m => `<div class="mission-card"><span class="mission-icon">${m.icon}</span><div class="mission-copy"><h3>${esc(m.title)}</h3><p>${esc(m.detail)}</p><div class="mission-line">${progressBar(m.current,m.target,true)}<small>${m.current}/${m.target}</small></div></div><button class="mission-reward ${m.claimed ? 'claimed' : ''}" data-action="claim-mission" data-id="${m.id}" ${m.claimed || m.current < m.target ? 'disabled' : ''}>${m.claimed ? '✓ Claimed' : `💎 ${m.gems}`}</button></div>`).join('')}</div>
-      <div class="section-heading"><div><h2>🗺️ Explore your worlds</h2><p>Choose a place to discover new words</p></div><button class="section-link" data-action="nav" data-to="learn">See all worlds →</button></div>
+      <div class="section-heading"><div><h2>🗺️ Explore your worlds</h2><p>Choose a place to discover new words</p></div><button class="section-link" data-action="worlds-overview">See world atlas →</button></div>
       <div class="lesson-grid">${featured.map(lessonCard).join('')}</div>`;
   }
+  function worldAtlas() {
+    const seen = Object.keys(progress.wordStats).length;
+    return `<div class="atlas-intro"><span class="hero-tag">🗺️ THE LIVING WORLD ATLAS</span><h1>Six incredible worlds.<br>One brilliant explorer.</h1><p>Choose a destination, travel through six districts, and unlock stories and vocabulary treasures. Every illustration comes from your original learning books.</p><div class="atlas-stats"><span>🌍 6 living worlds</span><span>📚 216 adventures</span><span>✨ ${seen.toLocaleString()} words discovered</span></div><img src="lumi-mascot.webp" alt="Lumi the fox points toward your next adventure"></div>
+    <div class="world-grid">${levels.map((level,i) => {
+      const meta = worldMeta[level], chapters = curriculumLessons.filter(l => l.level === level);
+      const seenWords = chapters.reduce((sum,lesson)=>sum+countSeen(lesson),0);
+      const completed = chapters.filter(lesson=>progress.lessonFinishes[lesson.id]).length;
+      const samples = [chapters[0].words[1],chapters[12].words[9],chapters[27].words[19]];
+      return `<button class="world-card" data-action="enter-world" data-level="${level}" style="--world-a:${meta.colors[0]};--world-b:${meta.colors[1]}"><span class="world-card-number">REGION ${String(i+1).padStart(2,'0')} · ${level}</span><span class="world-landmark" aria-hidden="true">${meta.landmark}</span><span class="world-symbol" aria-hidden="true">${meta.icon}</span><span class="world-title">${meta.name}</span><span class="world-subtitle">${meta.subtitle}</span><span class="world-art-row">${samples.map(w=>wordArt(w,'world-tile')).join('')}</span><span class="world-card-bottom"><span>${seenWords} / 900 words · ${completed}/36 adventures</span><strong>${percent(seenWords,900)}% explored ↗</strong></span><span class="world-meter"><i style="width:${percent(seenWords,900)}%"></i></span></button>`;
+    }).join('')}</div><div class="atlas-footer"><div><strong>🎁 Bonus Collection</strong><p>15 more themed lessons and 150 extra words.</p></div><button class="btn btn-outline" data-action="choose-bonus">Visit bonus worlds →</button></div>`;
+  }
   function learn() {
+    if (ui.exploreMode === 'worlds') return worldAtlas();
     const shown = ui.exploreMode === 'bonus' ? bonusLessons : curriculumLessons.filter(l => l.level === ui.curriculumLevel);
     const finished = shown.filter(lesson => progress.lessonFinishes[lesson.id]).length;
     const total = shown.reduce((sum, lesson) => sum + lesson.words.length, 0);
-    return `<div class="page-heading"><div class="eyebrow">${curriculumLessons.length} READING ADVENTURES · ${words.length.toLocaleString()} VOCABULARY ENTRIES</div><h1>Choose your next adventure 🗺️</h1><p>Work through all six available learning levels, then explore extra themed bonus worlds. Each curriculum adventure has 25 vocabulary cards.</p></div>
+    const world = worldMeta[ui.curriculumLevel];
+    const districts = Array.from({length:6},(_,i)=>shown.slice(i*6,i*6+6));
+    const visible = ui.exploreMode === 'bonus' ? shown : districts[ui.district];
+    return `<button class="atlas-back" data-action="worlds-overview">← Return to World Atlas</button><div class="page-heading"><div class="eyebrow">${curriculumLessons.length} READING ADVENTURES · ${words.length.toLocaleString()} VOCABULARY ENTRIES</div><h1>${ui.exploreMode === 'bonus' ? '🎁 Bonus Adventures' : `${world.icon} ${world.name}`}</h1><p>${ui.exploreMode === 'bonus' ? 'Explore extra themed words beyond the six core worlds.' : `${world.subtitle}. Journey through all six districts, 36 story adventures and 900 illustrated words.`}</p></div>
       <div class="level-picker" role="group" aria-label="Choose English difficulty level">
         ${levels.map(level => `<button class="level-choice ${ui.exploreMode === 'curriculum' && ui.curriculumLevel === level ? 'active' : ''}" data-action="choose-level" data-level="${level}"><strong>${level}</strong><small>900 words</small></button>`).join('')}
         <button class="level-choice ${ui.exploreMode === 'bonus' ? 'active' : ''}" data-action="choose-bonus"><strong>🎁 Bonus</strong><small>150 words</small></button>
       </div><div class="missing-level-note">🎉 Complete collection: 5,400 numbered vocabulary entries across six levels. The first source book is labeled “Pre-A1” and serves as the A1 foundation.</div>
       <div class="explore-banner"><div><span class="eyebrow">${ui.exploreMode === 'bonus' ? 'BONUS WORD WORLDS' : `${ui.curriculumLevel} · 36 READING ADVENTURES`}</span><h2>${finished} of ${shown.length} adventures explored</h2><p>${total.toLocaleString()} words in this collection · Arabic meanings and story examples in every level.</p>${progressBar(finished,shown.length)}</div><img src="lumi-mascot.webp" alt="Lumi is excited for your journey" /></div>
-      <div class="view-switch" role="group" aria-label="Choose learning view"><button class="${ui.learnView === 'path' ? 'active' : ''}" data-action="learn-view" data-view="path">🧭 Quest Path</button><button class="${ui.learnView === 'grid' ? 'active' : ''}" data-action="learn-view" data-view="grid">▦ All Worlds</button></div>
-      ${ui.learnView === 'grid' ? `<div class="lesson-grid">${shown.map(lessonCard).join('')}</div>` : `<div class="quest-path"><div class="quest-trail"></div>${shown.map((lesson,i) => {
+      ${ui.exploreMode === 'bonus' ? '' : `<div class="section-heading"><div><h2>🧭 Choose a district</h2><p>Six neighborhoods, each with six story adventures</p></div></div><div class="district-map" role="group" aria-label="Choose world district">${districts.map((district,i)=>{const complete = district.filter(l=>progress.lessonFinishes[l.id]).length;return `<button class="district-stop ${ui.district === i ? 'selected' : ''}" data-action="choose-district" data-index="${i}"><span class="district-number">${['🚪','🌷','🧩','⛵','☁️','🏆'][i]}</span><strong>${districtNames[i]}</strong><small>${complete}/6 stories explored</small></button>`;}).join('')}</div>`}
+      <div class="district-toolbar"><h2>${ui.exploreMode === 'bonus' ? 'Bonus collection' : `${districtNames[ui.district]} · Adventures ${ui.district*6+1}–${ui.district*6+6}`}</h2><div class="view-switch" role="group" aria-label="Choose learning view"><button class="${ui.learnView === 'path' ? 'active' : ''}" data-action="learn-view" data-view="path">🧭 Path</button><button class="${ui.learnView === 'grid' ? 'active' : ''}" data-action="learn-view" data-view="grid">▦ Cards</button></div></div>
+      ${ui.learnView === 'grid' ? `<div class="lesson-grid">${visible.map(lessonCard).join('')}</div>` : `<div class="quest-path"><div class="quest-trail"></div>${visible.map((lesson,i) => {
         const completed = Boolean(progress.lessonFinishes[lesson.id]);
         const seen = countSeen(lesson);
-        return `<div class="path-stop ${i % 2 ? 'right' : 'left'}"><button class="path-orb ${completed ? 'done' : ''}" style="--accent:${lesson.color}" data-action="open-lesson" data-id="${lesson.id}" aria-label="Open ${esc(lesson.title)}"><span>${lesson.emoji}</span>${completed ? '<i>✓</i>' : ''}</button><button class="path-card" data-action="open-lesson" data-id="${lesson.id}"><small>WORLD ${String(i+1).padStart(2,'0')} ${completed ? '· COMPLETED ⭐' : seen ? '· IN PROGRESS' : '· READY TO EXPLORE'}</small><strong>${esc(lesson.title)}</strong><span>${esc(lesson.subtitle)}</span><div class="path-card-footer">${seen} / ${lesson.words.length} words <b>${completed ? 'Replay ↻' : 'Explore →'}</b></div></button></div>`;
-      }).join('')}</div>`}`;
+        return `<div class="path-stop ${i % 2 ? 'right' : 'left'}"><button class="path-orb ${completed ? 'done' : ''}" style="--accent:${lesson.color}" data-action="open-lesson" data-id="${lesson.id}" aria-label="Open ${esc(lesson.title)}"><span>${lesson.emoji}</span>${completed ? '<i>✓</i>' : ''}</button><button class="path-card" data-action="open-lesson" data-id="${lesson.id}"><small>ADVENTURE ${String(ui.exploreMode === 'bonus' ? i+1 : ui.district*6+i+1).padStart(2,'0')} ${completed ? '· COMPLETED ⭐' : seen ? '· IN PROGRESS' : '· READY TO EXPLORE'}</small><strong>${esc(lesson.title)}</strong><span>${esc(lesson.subtitle)}</span><div class="path-card-footer">${seen} / ${lesson.words.length} words <b>${completed ? 'Replay ↻' : 'Explore →'}</b></div></button></div>`;
+      }).join('')}</div>`}
+      ${ui.exploreMode !== 'bonus' && ui.district < 5 ? `<button class="btn btn-outline btn-full mt-3" data-action="choose-district" data-index="${ui.district+1}">Continue to ${districtNames[ui.district+1]} →</button>` : ''}`;
   }
   function stageHeader(title, subtitle, current, total, mint = true) {
     return `<div class="stage-top"><button class="icon-btn" data-action="back" aria-label="Go back">←</button><div class="stage-title"><strong>${esc(title)}</strong><span>${esc(subtitle)}</span></div><span class="stat-pill">${Math.min(current,total)} / ${total}</span></div><div class="stage-progress">${progressBar(current,total,mint)}</div>`;
@@ -242,6 +269,8 @@
   function practice() {
     return `<div class="page-heading"><div class="eyebrow">MAKE KNOWLEDGE STICK</div><h1>The Practice Arcade ⚡</h1><p>Play short challenges, collect XP, and make every word unforgettable.</p></div>
       <div class="practice-grid">
+        <button class="mode-card featured-mode" style="--mode-bg:#dff7ff" data-action="start-picture"><span class="mode-icon">🔍</span><span class="new-badge">NEW · IMAGE GAME</span><h3>Picture Detective</h3><p>Spot the right illustration among four clues in eight delightful rounds.</p><span class="arrow">↗</span></button>
+        <button class="mode-card featured-mode" style="--mode-bg:#f3e7ff" data-action="start-mystery"><span class="mode-icon">🗝️</span><span class="new-badge">NEW · DAILY STORY</span><h3>Daily Mystery</h3><p>Decode the note, inspect a picture, and unlock the secret word for treasure.</p><span class="arrow">↗</span></button>
         <button class="mode-card" style="--mode-bg:#eee9ff" data-action="start-quiz" data-mode="choice"><span class="mode-icon">🧠</span><h3>Quick Quiz</h3><p>Choose the correct meaning and build your streak.</p><span class="arrow">↗</span></button>
         <button class="mode-card" style="--mode-bg:#e6fbf3" data-action="start-quiz" data-mode="review"><span class="mode-icon">🔁</span><h3>Smart Review</h3><p>${due().length ? `${due().length} words ready to revisit.` : 'A practice session until words are due.'}</p><span class="arrow">↗</span></button>
         <button class="mode-card" style="--mode-bg:#fff0df" data-action="start-quiz" data-mode="spell"><span class="mode-icon">✏️</span><h3>Spelling Bee</h3><p>Turn meanings into correctly spelled words.</p><span class="arrow">↗</span></button>
@@ -301,13 +330,92 @@
       <div class="center"><span style="font-size:57px">🧩</span><h2>Find the perfect pairs</h2><p class="muted small">Select one word and one meaning to connect them!</p></div>
       <div class="match-grid mt-3"><div class="match-column">${game.terms.map(w => tile(w,'term')).join('')}</div><div class="match-column">${game.meanings.map(w => tile(w,'meaning')).join('')}</div></div><p class="center muted small mt-3">${game.matched.length}/5 pairs matched · ${game.attempts} attempts</p></div>`;
   }
+  function levelWords(level = ui.curriculumLevel) {
+    return curriculumLessons.filter(lesson => lesson.level === level).flatMap(lesson => lesson.words);
+  }
+  function startPicture() {
+    const questions = engine.makePictureQuiz(levelWords(),8);
+    if (!questions.length) { toast('Picture challenges are available in the six illustrated worlds.'); return; }
+    ui.picture = {questions,index:0,score:0,answered:null}; go('picture');
+  }
+  function picture() {
+    const game = ui.picture, q = game.questions[game.index];
+    return `<div class="detective-stage">${stageHeader('🔍 Picture Detective',`${ui.curriculumLevel} · Find the matching artwork`,game.index+1,game.questions.length)}
+      <div class="detective-head"><span class="eyebrow">THE PICTURE CASE FILE</span><h1>Which picture shows…</h1><strong>${esc(q.word.term)}</strong><p dir="auto">${esc(q.word.meaning)}</p><button class="speaker" data-action="speak" data-id="${esc(q.word.id)}" aria-label="Hear the mystery word">🔊 Hear the word</button></div>
+      <div class="picture-grid">${q.options.map((option,i) => `<button class="picture-choice ${game.answered !== null ? option.id === q.word.id ? 'correct' : option.id === game.answered ? 'wrong' : 'dimmed' : ''}" data-action="picture-answer" data-id="${esc(option.id)}" aria-label="Picture ${'ABCD'[i]}${game.answered !== null ? `, ${esc(option.term)}` : ''}" ${game.answered !== null ? 'disabled' : ''}><span class="picture-letter">${'ABCD'[i]}</span>${wordArt(option,'detective-art',game.answered === null)}${game.answered !== null ? `<span class="picture-caption">${esc(option.term)}</span>` : '<span class="picture-caption">Mystery picture</span>'}${game.answered !== null && option.id === q.word.id ? '<span class="picture-check">✓</span>' : ''}</button>`).join('')}</div>
+      ${game.answered !== null ? `<div class="feedback ${game.answered === q.word.id ? '' : 'wrong'}">${game.answered === q.word.id ? '✨ Excellent detective work! You found the clue.' : `💡 The correct picture represents “${esc(q.word.term)}”.`}<button class="btn btn-primary btn-full" data-action="next-picture">${game.index === game.questions.length-1 ? 'See detective results 🏆' : 'Next picture →'}</button></div>` : `<p class="center muted small mt-3">Look closely at each picture. Choose your answer to reveal the clue.</p>`}</div>`;
+  }
+  function pictureAnswer(id) {
+    const game = ui.picture; if (!game || game.answered !== null) return;
+    const q = game.questions[game.index];
+    if (!q.options.some(option => option.id === id)) return;
+    game.answered = id;
+    const correct = id === q.word.id;
+    if (correct) game.score++;
+    engine.recordWord(progress,q.word.id,correct); save(); playSound(correct ? 'success' : 'wrong'); render();
+  }
+  function nextPicture() {
+    const game = ui.picture; if (!game || game.answered === null) return;
+    if (game.index < game.questions.length-1) { game.index++; game.answered = null; render(true); return; }
+    engine.recordQuiz(progress,game.score,game.questions.length,'picture');
+    progress.pictureWins++; save();
+    ui.result = {title:game.score === game.questions.length ? 'Master Picture Detective!' : 'Case closed, Detective!',
+      description:`You identified ${game.score} of ${game.questions.length} pictures. Each round makes your visual memory stronger.`,
+      icon:'🔍',score:game.score,total:game.questions.length,mode:'picture'};
+    go('result'); celebrate(); playSound('reward');
+  }
+  function startMystery(level = ui.curriculumLevel) {
+    if (!levels.includes(level)) return;
+    const puzzle = engine.makeDailyMystery(levelWords(level),engine.dayKey(),level);
+    if (!puzzle) { toast('The daily mystery will be available soon.'); return; }
+    ui.mystery = {puzzle,step:0,answered:false,selected:null,response:'',feedback:'',finished:false,rewarded:false,misses:0};
+    go('mystery');
+  }
+  function mystery() {
+    const game = ui.mystery, puzzle = game.puzzle, target = puzzle.target;
+    const names = ['Decode the note','Inspect the picture','Unlock the chest'];
+    if (game.finished) return `<div class="mystery-finale"><span class="mystery-finale-stars">✨ 🌟 ✨</span><span class="mystery-finale-icon">${puzzle.tale.icon}</span><span class="hero-tag">MYSTERY UNLOCKED · ${esc(puzzle.difficulty)}</span><h1>You cracked the case!</h1><p>In ${esc(puzzle.tale.place)}, you discovered the secret word:</p><div class="mystery-secret">${wordArt(target)}<div><strong>${esc(target.term)}</strong><span dir="auto">${esc(target.meaning)}</span></div></div><div class="mystery-prize">${game.rewarded ? '🏆 +70 XP · Treasure claimed!' : '🏆 Mystery replay complete · Treasure already claimed today'}</div><button class="btn btn-white btn-large btn-full" data-action="start-mystery" data-level="${puzzle.difficulty}">Replay this mystery ↻</button><button class="btn btn-outline btn-large btn-full mt-2" data-action="nav" data-to="practice">Back to the Arcade →</button></div>`;
+    const clue = game.step === 0 ? `<span class="clue-illustration">📜</span><h2>A coded note appears!</h2><p>Which English word matches this secret meaning?</p><div class="mystery-translation" dir="auto">${esc(target.meaning)}</div><div class="mystery-text-options">${puzzle.options.map((w,i)=>`<button class="mystery-text-option ${game.answered && w.id===target.id ? 'correct' : ''}" data-action="mystery-answer" data-id="${esc(w.id)}" ${game.answered ? 'disabled' : ''}><span>${'ABCD'[i]}</span>${esc(w.term)}</button>`).join('')}</div>`
+      : game.step === 1 ? `<span class="clue-illustration">🖼️</span><h2>Find the picture clue</h2><p>Lumi found four illustrations in ${esc(puzzle.tale.place)}. Which picture represents <strong>${esc(target.term)}</strong>?</p><div class="picture-grid mystery-picture-grid">${puzzle.options.map((w,i)=>`<button class="picture-choice ${game.answered ? w.id === target.id ? 'correct' : 'dimmed' : ''}" aria-label="Picture ${'ABCD'[i]}${game.answered ? `, ${esc(w.term)}` : ''}" data-action="mystery-answer" data-id="${esc(w.id)}" ${game.answered ? 'disabled' : ''}><span class="picture-letter">${'ABCD'[i]}</span>${wordArt(w,'detective-art',!game.answered)}<span class="picture-caption">${game.answered ? esc(w.term) : 'Inspect clue'}</span></button>`).join('')}</div>`
+      : `<span class="clue-illustration">🔐</span><h2>Spell the password</h2><p>The treasure chest needs the secret English word. Can you remember it?</p><div class="mystery-translation" dir="auto">${esc(target.meaning)}</div><p class="mystery-context">${esc(target.example ? target.example.replace(new RegExp(target.term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'ig'),'________') : `The secret word has ${target.term.length} letters.`)}</p><input type="text" data-role="mystery-input" class="search spelling-input" placeholder="Type the secret word" aria-label="Secret word password" autocapitalize="off" spellcheck="false" autocomplete="off" value="${esc(game.response)}" ${game.answered ? 'disabled' : ''}/>${game.answered ? '' : '<button class="btn btn-primary btn-large btn-full mt-3" data-action="mystery-check-spelling">Unlock treasure →</button>'}`;
+    return `<div class="mystery-stage">${stageHeader('🗝️ Daily Mystery',`${puzzle.date} · A fresh puzzle each day`,game.step+1,3)}<div class="mystery-hero"><span class="eyebrow">LUMI'S DAILY DETECTIVE CLUB</span><span class="mystery-hero-icon">${puzzle.tale.icon}</span><h1>${esc(puzzle.tale.title)}</h1><p>Follow three clues through ${esc(puzzle.tale.place)} to unlock today's treasure.</p><div class="mystery-levels" role="group" aria-label="Mystery difficulty">${levels.map(level=>`<button data-action="start-mystery" data-level="${level}" class="${level===puzzle.difficulty ? 'active' : ''}" ${level===puzzle.difficulty ? 'aria-current="true"' : ''}>${level}</button>`).join('')}</div></div>
+      <div class="mystery-steps">${names.map((name,i)=>`<div class="mystery-step ${i===game.step ? 'current' : i<game.step ? 'complete' : ''}"><span>${i<game.step ? '✓' : i+1}</span><strong>${name}</strong></div>`).join('')}</div>
+      <div class="mystery-clue">${clue}${game.feedback ? `<div class="mystery-feedback ${game.answered ? 'correct' : 'try-again'}">${esc(game.feedback)}</div>` : ''}${game.answered ? `<button class="btn btn-primary btn-large btn-full mt-3" data-action="next-mystery">${game.step === 2 ? 'Open the treasure chest 🎁' : 'Follow the next clue →'}</button>` : ''}</div>
+      <p class="center muted small mt-3">${progress.mysteryWins[puzzle.key] ? '✓ You already earned today’s mystery treasure at this level. Replay for fun!' : '🎁 Solve all three clues to earn 70 XP · One reward per level each day'}</p></div>`;
+  }
+  function mysteryAnswer(id) {
+    const game = ui.mystery; if (!game || game.answered || game.step === 2) return;
+    if (!game.puzzle.options.some(option=>option.id === id)) return;
+    if (id === game.puzzle.target.id) { game.answered = true; game.feedback = game.step === 0 ? 'Brilliant! The first clue is decoded.' : 'Sharp eyes! You found the matching picture.'; playSound('success'); }
+    else { game.feedback = 'Not this clue! Try another one. You can do it.'; game.misses++; playSound('wrong'); }
+    render();
+  }
+  function mysteryCheckSpelling() {
+    const game = ui.mystery; if (!game || game.answered || game.step !== 2) return;
+    const input = document.querySelector('[data-role="mystery-input"]');
+    const typed = input ? input.value.trim() : game.response.trim();
+    if (!typed) { toast('Type the secret word to open the chest 🔐'); return; }
+    game.response = typed;
+    if (typed.replace(/\s+/g,' ').toLowerCase() === game.puzzle.target.term.trim().replace(/\s+/g,' ').toLowerCase()) {
+      game.answered = true; game.feedback = 'Password accepted! The treasure chest is glowing!'; playSound('success');
+    } else { game.feedback = `Almost there! Think of the word from your first two clues. It starts with “${game.puzzle.target.term[0].toUpperCase()}”.`; game.misses++; playSound('wrong'); }
+    render();
+  }
+  function nextMystery() {
+    const game = ui.mystery; if (!game || !game.answered) return;
+    if (game.step < 2) { game.step++; game.answered = false; game.selected = null; game.feedback = ''; render(true); return; }
+    engine.touchDay(progress);
+    game.rewarded = engine.claimMystery(progress,game.puzzle.key);
+    if (game.rewarded) engine.activity(progress).quizzes++;
+    game.finished = true; save(); go('mystery'); celebrate(); playSound('reward');
+  }
   function finish(title, description, icon, stats, actions) {
     return `<div class="surface finish"><span class="big-celebrate">${icon}</span><span class="eyebrow">QUEST COMPLETE</span><h1>${esc(title)}</h1><p>${esc(description)}</p>
       <div class="finish-stats">${stats.map(([emoji,value,label]) => `<div class="mini-stat"><span>${emoji}</span><strong>${value}</strong><small>${label}</small></div>`).join('')}</div>${actions}</div>`;
   }
   function result() {
     const x = ui.result;
-    return finish(x.title,x.description,x.icon,[['🎯',x.score, 'CORRECT'],['⭐',x.total,'QUESTIONS']],`<button class="btn btn-primary btn-large btn-full" data-action="${x.mode === 'match' ? 'start-match':'start-quiz'}" ${x.mode === 'match' ? '' : `data-mode="${x.mode}"`}>Play again ↻</button><button class="btn btn-outline btn-large btn-full mt-2" data-action="nav" data-to="practice">Back to arcade →</button>`);
+    return finish(x.title,x.description,x.icon,[['🎯',x.score, 'CORRECT'],['⭐',x.total,'QUESTIONS']],`<button class="btn btn-primary btn-large btn-full" data-action="${x.mode === 'match' ? 'start-match' : x.mode === 'picture' ? 'start-picture' : 'start-quiz'}" ${['match','picture'].includes(x.mode) ? '' : `data-mode="${x.mode}"`}>Play again ↻</button><button class="btn btn-outline btn-large btn-full mt-2" data-action="nav" data-to="practice">Back to arcade →</button>`);
   }
   function filteredWords() {
     const term = ui.collectionQuery.trim().toLowerCase();
@@ -334,7 +442,7 @@
     const maxActivity = Math.max(10,...week.map(d=>d.words));
     const accuracy = week.reduce((sum,d)=>sum+d.words,0) ? Math.round(week.reduce((sum,d)=>sum+d.correct,0) / week.reduce((sum,d)=>sum+d.words,0) * 100) : 0;
     return `<div class="page-heading"><div class="eyebrow">THE EXPLORER'S CORNER</div><h1>My Adventure Profile 👤</h1><p>Every step forward deserves to be celebrated.</p></div>
-      <div class="level-banner"><div style="flex:1"><span class="hero-tag">LEVEL ${level.level} EXPLORER</span><h2>You've earned ${progress.xp} XP!</h2><p>${mastered()} words mastered · ${Object.keys(progress.storyFinishes).length} stories completed · ${currentStreak()} day streak · ${progress.coins} gems</p><div class="level-progress">${progressBar(level.earned,level.target)}<small>${level.earned} / ${level.target} XP to next level</small></div></div><img class="profile-lumi" src="lumi-mascot.webp" alt="Lumi celebrates your progress" /></div>
+      <div class="level-banner"><div style="flex:1"><span class="hero-tag">LEVEL ${level.level} EXPLORER</span><h2>You've earned ${progress.xp} XP!</h2><p>${mastered()} words mastered · ${Object.keys(progress.storyFinishes).length} stories completed · ${progress.pictureWins || 0} picture cases · ${Object.keys(progress.mysteryWins).length} mysteries solved · ${currentStreak()} day streak · ${progress.coins} gems</p><div class="level-progress">${progressBar(level.earned,level.target)}<small>${level.earned} / ${level.target} XP to next level</small></div></div><img class="profile-lumi" src="lumi-mascot.webp" alt="Lumi celebrates your progress" /></div>
       <div class="section-heading"><div><h2>📊 Learning momentum</h2><p>Your last seven days at a glance</p></div></div><div class="surface"><div class="weekly-bars">${week.map(d=>`<div class="weekly-day"><div class="weekly-column"><i style="height:${Math.max(7,Math.round(d.words/maxActivity*100))}%" title="${d.words} words"></i></div><strong>${d.label}</strong><small>${d.words}</small></div>`).join('')}</div><div class="weekly-summary"><span>🎯 ${accuracy}% accuracy this week</span><span>📚 ${week.reduce((sum,d)=>sum+d.words,0)} word practices</span></div></div>
       <div class="section-heading"><div><h2>✨ Your achievements</h2><p>${badges.filter(b => b.earned).length} of ${badges.length} badges unlocked</p></div></div><div class="badge-grid">${badges.map(b => `<div class="badge-card ${b.earned ? '' : 'locked'}"><span class="big">${b.icon}</span><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p></div>`).join('')}</div>
       <div class="section-heading"><h2>⚙️ My settings</h2></div><div class="surface"><label class="strong" for="name-field">Explorer name</label><div class="section-tools mt-2 mb-0"><input id="name-field" class="search" style="flex:1;min-width:0" maxlength="24" value="${esc(progress.name)}" /><button class="btn btn-primary" data-action="save-name">Save</button></div>
@@ -344,7 +452,7 @@
       <p class="small muted mt-3 mb-0">Your name and learning progress stay on this device. No account required.</p></div>`;
   }
   function render(scroll = false) {
-    const screens = {home,learn,lesson,'lesson-finish':lessonFinish,story,'story-finish':storyFinish,practice,quiz,spell:spelling,match, result, collection, profile};
+    const screens = {home,learn,lesson,'lesson-finish':lessonFinish,story,'story-finish':storyFinish,practice,quiz,spell:spelling,match,picture,mystery,result,collection,profile};
     root.innerHTML = ui.screen === 'welcome' ? welcome() : `<div class="shell">${sidebar()}<div class="workspace">${topbar()}<main id="main-content">${(screens[ui.screen] || home)()}</main></div></div>${bottomnav()}`;
     if (document.body.classList) document.body.classList.toggle('reduce-motion', progress.reduceMotion);
     if (scroll) window.scrollTo({top:0,behavior:'instant'});
@@ -463,7 +571,7 @@
   function back() {
     stopSpeech();
     if (['lesson','lesson-finish','story','story-finish'].includes(ui.screen)) { go('learn'); return true; }
-    if (['quiz','spell','match','result'].includes(ui.screen)) { go('practice'); return true; }
+    if (['quiz','spell','match','picture','mystery','result'].includes(ui.screen)) { go('practice'); return true; }
     if (ui.screen !== 'home') { go('home'); return true; }
     return false;
   }
@@ -484,7 +592,10 @@
       case 'nav': go(target.dataset.to); break;
       case 'back': back(); break;
       case 'learn-view': ui.learnView = target.dataset.view; render(); break;
-      case 'choose-level': ui.exploreMode = 'curriculum'; ui.curriculumLevel = target.dataset.level; render(); break;
+      case 'worlds-overview': ui.exploreMode = 'worlds'; go('learn'); break;
+      case 'enter-world': ui.curriculumLevel = target.dataset.level; ui.district = 0; ui.exploreMode = 'curriculum'; go('learn'); break;
+      case 'choose-level': ui.exploreMode = 'curriculum'; ui.curriculumLevel = target.dataset.level; ui.district = 0; render(); break;
+      case 'choose-district': ui.district = Math.max(0,Math.min(5,Number(target.dataset.index) || 0)); render(true); break;
       case 'choose-bonus': ui.exploreMode = 'bonus'; render(); break;
       case 'open-lesson': openLesson(id); break;
       case 'open-story': openStory(id); break;
@@ -509,6 +620,13 @@
       case 'check-spelling': checkSpelling(); break;
       case 'start-match': startMatch(); break;
       case 'match-pick': matchPick(target.dataset.side,id); break;
+      case 'start-picture': startPicture(); break;
+      case 'picture-answer': pictureAnswer(id); break;
+      case 'next-picture': nextPicture(); break;
+      case 'start-mystery': startMystery(target.dataset.level || ui.curriculumLevel); break;
+      case 'mystery-answer': mysteryAnswer(id); break;
+      case 'mystery-check-spelling': mysteryCheckSpelling(); break;
+      case 'next-mystery': nextMystery(); break;
       case 'filter': ui.collectionFilter = id; ui.collectionLimit = 60; render(); break;
       case 'collection-level': ui.collectionLevel = target.dataset.level; ui.collectionLimit = 60; render(); break;
       case 'more-words': ui.collectionLimit += 60; document.getElementById('collection-results').innerHTML = collectionRows(); break;
@@ -537,6 +655,7 @@
       if (result) result.innerHTML = collectionRows();
     }
     if (event.target.dataset.role === 'spell-input' && ui.quiz) ui.quiz.response = event.target.value;
+    if (event.target.dataset.role === 'mystery-input' && ui.mystery) ui.mystery.response = event.target.value;
     if (event.target.dataset.role === 'story-answer') {
       const selected = lessonById(ui.lessonId);
       progress.storyResponses[selected.id] ||= {};
@@ -546,6 +665,7 @@
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Enter' && event.target.dataset.role === 'spell-input') checkSpelling();
+    if (event.key === 'Enter' && event.target.dataset.role === 'mystery-input') mysteryCheckSpelling();
   });
   window.VQ = {back, go, getProgress:() => ({...progress})};
   render();

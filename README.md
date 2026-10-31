@@ -5,17 +5,20 @@ An offline-first, premium-styled English vocabulary adventure for Android.
 ## What is included
 
 - Original fox explorer mascot **Lumi**, welcoming onboarding and a colorful quest path
+- **v5 Living World Atlas:** six illustrated regions, 36 interactive districts, level progress and themed adventure paths
+- **Picture Detective:** eight-round illustrated word-identification game using the original PDF artwork
+- **Daily Mystery:** an offline, date-stable three-clue puzzle (word meaning, picture identification and spelling), with one 70-XP treasure per level per day
 - 216 PDF-derived adventures across A1, A2, B1, B2, C1 and C2
 - 5,400 numbered entries (900 per level), with Arabic meanings and complete context examples
 - All 216 original reading stories, with 864 open-response comprehension prompts
 - 5,400 original word illustrations packed into 216 lazy-loaded WebP atlases
 - 15 additional themed bonus worlds (150 English-definition words)
 - 5,550 total lesson entries, offline with no network connection
-- Dedicated level selector, illustrated flip-cards and full-page reading activities
+- Interactive world and district selectors, illustrated flip-cards and full-page reading activities
 - Tap-to-translate words in stories, native read-aloud and slow pronunciation
 - Multiple-choice challenges, spelling, listening dictation and matching pairs
 - Reading answer saving and first-completion XP rewards (answers are not auto-graded)
-- Smart review scheduling, favorites, adjustable daily goals, streaks, XP and badges
+- Smart review scheduling, favorites, adjustable daily goals, streaks, XP and badges, including mystery and detective achievements
 - Daily treasure missions, claimable gems, a Boss Battle and purchasable in-game hints
 - Weekly activity charts, level progress, sound effects and motion controls
 - Local progress saved on the device; no account or internet required
@@ -60,7 +63,8 @@ npm test
 
 The tests validate the full 5,400-entry curriculum, 216 stories, 864 questions,
 illustration atlas files, Arabic meanings, IDs, challenge options, reading
-progress migration, daily missions, review scheduling and UI navigation.
+progress migration, daily missions, review scheduling, deterministic daily mysteries,
+picture-detective rounds, repeat-reward prevention and UI navigation.
 The app requires no npm packages at runtime.
 
 ## Extending the word library

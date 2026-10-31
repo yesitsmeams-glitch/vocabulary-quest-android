@@ -28,6 +28,43 @@ test('quiz produces correct answers and four different options', () => {
   }
 });
 
+test('picture detective only uses illustrated words and four distinct visual answers', () => {
+  const curriculum = require('node:fs').readFileSync(require('node:path').join(__dirname,'../app/src/main/assets/curriculum/curriculum-a1.js'),'utf8');
+  const world = {VQ_CURRICULUM:[]};
+  require('node:vm').runInNewContext(curriculum,{window:world});
+  const questions = engine.makePictureQuiz(world.VQ_CURRICULUM.flatMap(l=>l.words),8,()=>0.31);
+  assert.equal(questions.length,8);
+  for (const question of questions) {
+    assert.equal(question.options.length,4);
+    assert.equal(new Set(question.options.map(w=>w.id)).size,4);
+    assert.ok(question.options.some(w=>w.id === question.word.id));
+    assert.ok(question.options.every(w=>w.number && w.level === 'A1'));
+  }
+});
+
+test('daily mysteries stay stable offline, rotate by date, and pay XP once', () => {
+  const curriculum = require('node:fs').readFileSync(require('node:path').join(__dirname,'../app/src/main/assets/curriculum/curriculum-b2.js'),'utf8');
+  const world = {VQ_CURRICULUM:[]};
+  require('node:vm').runInNewContext(curriculum,{window:world});
+  const candidates = world.VQ_CURRICULUM.flatMap(l=>l.words);
+  const first = engine.makeDailyMystery(candidates,'2026-10-31','B2');
+  const same = engine.makeDailyMystery(candidates,'2026-10-31','B2');
+  const next = engine.makeDailyMystery(candidates,'2026-11-01','B2');
+  assert.equal(first.key,'2026-10-31:B2');
+  assert.equal(first.target.id,same.target.id);
+  assert.deepEqual(first.options.map(w=>w.id),same.options.map(w=>w.id));
+  assert.notEqual(first.target.id,next.target.id);
+  assert.equal(new Set(first.options.map(w=>w.meaning)).size,4);
+  const progress = engine.normalizeProgress({xp:50,mysteryWins:null});
+  assert.deepEqual(progress.mysteryWins,{});
+  assert.equal(engine.claimMystery(progress,first.key),true);
+  assert.equal(progress.xp,120);
+  assert.equal(engine.claimMystery(progress,first.key),false);
+  assert.equal(progress.xp,120);
+  assert.equal(engine.claimMystery(progress,next.key),true);
+  assert.equal(progress.xp,190);
+});
+
 test('review scheduling advances, doubles intervals and resets after mistakes', () => {
   const progress = engine.defaultProgress();
   const t = new Date('2026-10-20T12:00:00Z');

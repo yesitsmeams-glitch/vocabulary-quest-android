@@ -12,8 +12,8 @@
       lastDay: "", dailyCount: 0, dailyGoal: 10, wordStats: {},
       favorites: [], lessonFinishes: {}, storyFinishes: {}, storyResponses: {},
       quizzesWon: 0, perfectQuizzes: 0,
-      completedMatches: 0, completedSpelling: 0, bossWins: 0,
-      dailyHistory: {}, dailyClaims: {}, hintsUsed: 0 };
+      completedMatches: 0, completedSpelling: 0, bossWins: 0, pictureWins: 0,
+      dailyHistory: {}, dailyClaims: {}, mysteryWins: {}, hintsUsed: 0 };
   }
   function normalizeProgress(value) {
     const base = defaultProgress();
@@ -26,6 +26,7 @@
     if (!state.storyResponses || typeof state.storyResponses !== "object") state.storyResponses = {};
     if (!state.dailyHistory || typeof state.dailyHistory !== "object") state.dailyHistory = {};
     if (!state.dailyClaims || typeof state.dailyClaims !== "object") state.dailyClaims = {};
+    if (!state.mysteryWins || typeof state.mysteryWins !== "object" || Array.isArray(state.mysteryWins)) state.mysteryWins = {};
     if (Object.keys(state.wordStats).length > 0) state.onboarded = true;
     return state;
   }
@@ -109,6 +110,51 @@
         options: shuffle([word.meaning, ...wrong], random) };
     });
   }
+  function uniqueIllustrated(words) {
+    const meanings = new Set(), terms = new Set();
+    return words.filter(word => {
+      if (!word.id || !word.number || !word.level || !word.term || !word.meaning) return false;
+      const term = word.term.trim().toLowerCase(), meaning = word.meaning.trim();
+      if (meanings.has(meaning) || terms.has(term)) return false;
+      meanings.add(meaning); terms.add(term);
+      return true;
+    });
+  }
+  function makePictureQuiz(candidates, count = 8, random = Math.random) {
+    const pool = uniqueIllustrated(candidates);
+    if (pool.length < 4) return [];
+    return shuffle(pool,random).slice(0,count).map(word => {
+      const others = shuffle(pool.filter(other => other.id !== word.id),random).slice(0,3);
+      return {word,options:shuffle([word,...others],random)};
+    });
+  }
+  function seededRandom(seed) {
+    let state = 2166136261;
+    for (const character of String(seed)) state = Math.imul(state ^ character.charCodeAt(0),16777619) >>> 0;
+    return () => { state += 0x6D2B79F5; let t = state; t = Math.imul(t ^ (t >>> 15),t | 1); t ^= t + Math.imul(t ^ (t >>> 7),t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function makeDailyMystery(candidates, date, difficulty) {
+    const random = seededRandom(`${date}:${difficulty}:v5`);
+    const pool = uniqueIllustrated(candidates).filter(word => /^[a-z][a-z -]{3,13}$/i.test(word.term) && word.term.trim().split(/\s+/).length <= 2);
+    if (pool.length < 4) return null;
+    const target = shuffle(pool,random)[0];
+    const distractors = shuffle(pool.filter(word => word.id !== target.id),random).slice(0,3);
+    const options = shuffle([target,...distractors],random);
+    const tales = [
+      {icon:'🗝️',title:'The Lost Library Key',place:'the Moonlit Library'},
+      {icon:'🧭',title:'The Secret Star Map',place:'the Explorer Observatory'},
+      {icon:'💎',title:'The Hidden Crystal',place:'the Sapphire Cavern'},
+      {icon:'🔮',title:'The Whispering Portal',place:'the Enchanted Garden'},
+      {icon:'🏰',title:'The Castle Cipher',place:'the Cloud Castle'}
+    ];
+    return {key:`${date}:${difficulty}`,date,difficulty,target,options,tale:tales[Math.floor(random()*tales.length)]};
+  }
+  function claimMystery(progress,key,xp = 70) {
+    if (progress.mysteryWins[key]) return false;
+    progress.mysteryWins[key] = true;
+    award(progress,xp);
+    return true;
+  }
   function level(xp) { return Math.floor(Math.sqrt(Math.max(0, xp) / 80)) + 1; }
   function levelInfo(xp) {
     const current = level(xp);
@@ -164,12 +210,14 @@
       { icon: "👑", title: "Boss Slayer", description: "Conquer a Boss Battle", earned: progress.bossWins >= 1 },
       { icon: "💖", title: "Word Keeper", description: "Save 20 favorite words", earned: progress.favorites.length >= 20 },
       { icon: "🗺️", title: "World Traveler", description: "Finish 5 lessons", earned: Object.keys(progress.lessonFinishes).length >= 5 },
-      { icon: "🌌", title: "Ultimate Explorer", description: "Complete 36 adventures", earned: Object.keys(progress.lessonFinishes).length >= 36 }
+      { icon: "🌌", title: "Ultimate Explorer", description: "Complete 36 adventures", earned: Object.keys(progress.lessonFinishes).length >= 36 },
+      { icon: "🔍", title: "Picture Sleuth", description: "Solve a picture challenge", earned: (progress.pictureWins || 0) >= 1 },
+      { icon: "🗝️", title: "Mystery Solver", description: "Unlock your first daily mystery", earned: Object.keys(progress.mysteryWins).length >= 1 }
     ];
   }
   const api = { dayKey, defaultProgress, normalizeProgress, touchDay, award,
     activity, recordWord, recordQuiz, recordFavorite, isMastered, dueWords,
-    shuffle, makeQuiz, level, levelInfo, allWords, missions,
+    shuffle, makeQuiz, makePictureQuiz, makeDailyMystery, claimMystery, level, levelInfo, allWords, missions,
     missionState, claimMission, weeklyActivity, achievements };
   root.VQEngine = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
