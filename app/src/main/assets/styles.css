@@ -195,6 +195,15 @@ button:disabled { cursor: default; opacity: .55; }
 .explore-banner { min-height: 156px; padding: 25px 35px; background: linear-gradient(115deg,#edf5ff,#f7edff); border: 1px solid #e5e8fa; border-radius: 26px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; }
 .explore-banner>div { flex: 1; max-width: 490px; }.explore-banner h2 { font-size: 23px; letter-spacing: -.6px; margin: 6px 0; }.explore-banner p { font-size: 12px; color: var(--muted); margin: 0 0 17px; }
 .explore-banner img { object-fit: contain; height: 160px; width: 150px; align-self: end; margin: -30px 10px -25px; filter: drop-shadow(0 10px 8px #5142b02a); }
+.level-picker { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 10px; margin: 18px 0 10px; }
+.level-choice { border: 2px solid #e7e3f5; background: #fff; border-radius: 19px; min-height: 75px; padding: 13px 7px; color: var(--ink); box-shadow: 0 7px 15px #3d308a0a; }
+.level-choice strong,.level-choice small { display: block; }.level-choice strong { font-size: 20px; font-weight: 950; }.level-choice small { font-size: 10px; color: var(--muted); margin-top: 4px; font-weight: 750; }
+.level-choice.active { border-color: #7966fa; color: #5844db; background: #f1eeff; box-shadow: 0 6px 17px #6d59e71b; }
+.missing-level-note { background: #fff8e7; color: #916d26; padding: 11px 15px; border: 1px solid #f4e5c0; border-radius: 13px; font-size: 12px; font-weight: 750; margin-bottom: 16px; }
+.level-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.collection-count { color: var(--muted); font-size: 12px; margin: 8px 0 14px; font-weight: 800; }
+.definition:lang(ar),.flashcard .definition[dir=auto] { unicode-bidi: plaintext; }
+.answer bdi,.match-tile bdi { unicode-bidi: isolate; }
 .view-switch { background: #e9e7f5; padding: 5px; border-radius: 15px; display: flex; width: fit-content; gap: 4px; margin: 22px 0 18px; }
 .view-switch button { background: transparent; border: none; border-radius: 11px; padding: 10px 19px; font-size: 13px; font-weight: 900; color: #8984a5; }.view-switch button.active { color: var(--purple); background: white; box-shadow: 0 4px 10px #5143a815; }
 .quest-path { max-width: 850px; margin: 5px auto 30px; position: relative; padding: 35px 22px; }
@@ -220,6 +229,7 @@ button:disabled { cursor: default; opacity: .55; }
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 @media (max-width: 960px) { .mission-grid { grid-template-columns: 1fr; }.mission-card { grid-template-columns: 44px 1fr auto; align-items: center; }.mission-reward { grid-column: auto; padding: 0 12px; }.welcome-panel { min-height: 550px; } }
 @media (max-width: 750px) {
+  .level-picker { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-top: 10px; }.level-choice { min-height: 65px; border-radius: 15px; padding: 10px 4px; }.level-choice strong { font-size: 16px; }.level-choice small { font-size: 9px; }.missing-level-note { font-size: 10px; }
   .welcome-screen { padding: 16px 12px 35px; }.welcome-brand { margin: 4px auto 16px; font-size: 12px; }.welcome-panel { display: block; border-radius: 24px; min-height: 0; }.welcome-art { height: 245px; }.welcome-art img { height: 286px; width: 260px; transform: translateY(22px); }.welcome-spark.one { top: 23px; right: 38px; }.welcome-spark.two { left: 35px; bottom: 36px; }.welcome-copy { padding: 26px 24px 30px; }.welcome-copy h1 { font-size: 35px; margin: 14px 0 9px; }.welcome-copy p { font-size: 13px; margin-bottom: 20px; }.goal-option { padding: 10px 5px; }.goal-option strong { font-size: 11px; }.welcome-note { font-size: 9px; }
   .hero-mascot { width: 167px; height: 212px; transform: translateY(14px); }.hero-art { height: 180px; }.hero h2 { font-size: 28px; }.hero-copy { min-width: 0; }.hero .hero-tag { font-size: 9px; }.hero .btn { font-size: 12px; padding: 10px 13px; }
   .mission-grid { grid-template-columns: 1fr; gap: 10px; }.mission-card { border-radius: 17px; }.quest-reset { display: none; }

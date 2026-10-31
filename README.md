@@ -5,8 +5,11 @@ An offline-first, premium-styled English vocabulary adventure for Android.
 ## What is included
 
 - Original fox explorer mascot **Lumi**, welcoming onboarding and a colorful quest path
-- 15 themed topic worlds and 150 carefully written starter words
-- Flip-card lessons with pronunciation, definitions and examples
+- 216 PDF-derived adventures across A1, A2, B1, B2, C1 and C2
+- 5,400 numbered entries (900 per level), with Arabic meanings and example snippets
+- 15 additional themed bonus worlds (150 English-definition words)
+- 5,550 total lesson entries, offline with no network connection
+- Dedicated level selector, flip-card lessons with pronunciation, and examples
 - Multiple-choice challenges, spelling challenges and matching pairs
 - Smart review scheduling, favorites, adjustable daily goals, streaks, XP and badges
 - Daily treasure missions, claimable gems, a Boss Battle and purchasable in-game hints
@@ -14,10 +17,12 @@ An offline-first, premium-styled English vocabulary adventure for Android.
 - Local progress saved on the device; no account or internet required
 - Responsive web preview using the same assets as the native Android app
 
-> **Content recovery note:** This is a new, working starter library. The original
-> 5,400-word collection and original illustrations from the earlier interrupted
-> conversation were not present in the GitHub repository. They have not been
-> silently reconstructed or claimed as recovered.
+> **Curriculum status:** All six supplied PDFs together cover exactly 5,400
+> numbered word entries. The first PDF is labeled **PRE-A1** in its own pages;
+> it is presented as the A1 foundation in the app. The bonus 150 words are
+> separate and do not count toward the 5,400-entry target. Some terms recur.
+> PDF word lists and short example snippets were migrated; original full PDFs,
+> stories and illustrated pages are not embedded. The app's fox artwork is new.
 
 ## Preview locally
 
@@ -46,15 +51,23 @@ With Node.js 20 or later:
 npm test
 ```
 
-The tests validate the vocabulary collection, challenge options, migration,
-daily missions and review scheduling, plus the major UI flows. The app requires
-no npm packages at runtime.
+The tests validate the full 5,400-entry curriculum, Arabic text, IDs,
+challenge options, progress migration, daily missions, review scheduling and
+UI navigation. The app requires no npm packages at runtime.
 
 ## Extending the word library
 
-Edit `app/src/main/assets/data.js`. Every lesson has an ID, title, theme and a
-`words` list with `[term, meaning, example]` entries. Word IDs are generated
-from the lesson ID and term. Keep those stable so users retain their progress.
+Edit `app/src/main/assets/data.js` to adjust the original bonus lesson library.
+The A1–C2 curriculum lives in the six JS files in `app/src/main/assets/curriculum`.
+To regenerate it from the source PDF attachments, run:
+
+```sh
+python3 scripts/extract_vocab_pdfs.py --input-dir ../upload --out-dir app/src/main/assets/curriculum
+```
+
+The extraction script checks all 36 sets and 900 entries per level. It never
+commits the source PDFs. Keep vocabulary IDs stable to retain existing learner
+progress.
 
 ## Privacy
 

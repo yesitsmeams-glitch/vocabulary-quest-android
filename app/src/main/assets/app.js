@@ -1,6 +1,9 @@
 (function () {
   'use strict';
-  const lessons = window.VQ_LESSONS;
+  const bonusLessons = window.VQ_LESSONS;
+  const curriculumLessons = window.VQ_CURRICULUM || [];
+  const lessons = [...curriculumLessons, ...bonusLessons];
+  const levels = ['A1','A2','B1','B2','C1','C2'];
   const engine = window.VQEngine;
   const words = engine.allWords(lessons);
   const byId = new Map(words.map(word => [word.id, word]));
@@ -11,8 +14,10 @@
   catch (_) { progress = engine.defaultProgress(); }
   const ui = { screen: progress.onboarded ? 'home' : 'welcome', lessonId: lessons[0].id, index: 0,
     flipped: false, quiz: null, result: null, match: null,
-    learnView: 'path', onboardGoal: 10, onboardName: '',
-    collectionQuery: '', collectionFilter: 'all', toast: '', toastTimeout: 0 };
+    learnView: 'path', exploreMode: 'curriculum', curriculumLevel: 'A1',
+    onboardGoal: 10, onboardName: '',
+    collectionQuery: '', collectionFilter: 'all', collectionLevel: 'all', collectionLimit: 60,
+    toast: '', toastTimeout: 0 };
   function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -101,7 +106,7 @@
     const seen = countSeen(lesson);
     return `<button class="lesson-card" data-action="open-lesson" data-id="${lesson.id}" style="--accent:${lesson.color}">
       <div class="lesson-illustration"><span>${lesson.emoji}</span></div><div class="lesson-card-info"><h3>${esc(lesson.title)}</h3><p>${esc(lesson.subtitle)}</p>
-      <div class="lesson-footer"><span>${lesson.words.length} words</span><strong>${seen === 10 ? '✓ Complete' : `${seen}/10 discovered`}</strong></div>
+      <div class="lesson-footer"><span>${lesson.words.length} words</span><strong>${seen === lesson.words.length ? '✓ Complete' : `${seen}/${lesson.words.length} discovered`}</strong></div>
       <div class="lesson-bar"><i style="width:${percent(seen,lesson.words.length)}%"></i></div></div></button>`;
   }
   function welcome() {
@@ -131,14 +136,20 @@
       <div class="lesson-grid">${featured.map(lessonCard).join('')}</div>`;
   }
   function learn() {
-    const finished = Object.keys(progress.lessonFinishes).length;
-    return `<div class="page-heading"><div class="eyebrow">15 WORLDS · ${words.length} WORDS</div><h1>Choose your next adventure 🗺️</h1><p>Follow Lumi's winding trail through colorful worlds, or choose any topic that interests you.</p></div>
-      <div class="explore-banner"><div><span class="eyebrow">THE GRAND WORD JOURNEY</span><h2>${finished} of ${lessons.length} worlds explored</h2><p>Every completed world brings you closer to mastery.</p>${progressBar(finished,lessons.length)}</div><img src="lumi-mascot.webp" alt="Lumi is excited for your journey" /></div>
+    const shown = ui.exploreMode === 'bonus' ? bonusLessons : curriculumLessons.filter(l => l.level === ui.curriculumLevel);
+    const finished = shown.filter(lesson => progress.lessonFinishes[lesson.id]).length;
+    const total = shown.reduce((sum, lesson) => sum + lesson.words.length, 0);
+    return `<div class="page-heading"><div class="eyebrow">${curriculumLessons.length} READING ADVENTURES · ${words.length.toLocaleString()} VOCABULARY ENTRIES</div><h1>Choose your next adventure 🗺️</h1><p>Work through all six available learning levels, then explore extra themed bonus worlds. Each curriculum adventure has 25 vocabulary cards.</p></div>
+      <div class="level-picker" role="group" aria-label="Choose English difficulty level">
+        ${levels.map(level => `<button class="level-choice ${ui.exploreMode === 'curriculum' && ui.curriculumLevel === level ? 'active' : ''}" data-action="choose-level" data-level="${level}"><strong>${level}</strong><small>900 words</small></button>`).join('')}
+        <button class="level-choice ${ui.exploreMode === 'bonus' ? 'active' : ''}" data-action="choose-bonus"><strong>🎁 Bonus</strong><small>150 words</small></button>
+      </div><div class="missing-level-note">🎉 Complete collection: 5,400 numbered vocabulary entries across six levels. The first source book is labeled “Pre-A1” and serves as the A1 foundation.</div>
+      <div class="explore-banner"><div><span class="eyebrow">${ui.exploreMode === 'bonus' ? 'BONUS WORD WORLDS' : `${ui.curriculumLevel} · 36 READING ADVENTURES`}</span><h2>${finished} of ${shown.length} adventures explored</h2><p>${total.toLocaleString()} words in this collection · Arabic meanings and story examples in every level.</p>${progressBar(finished,shown.length)}</div><img src="lumi-mascot.webp" alt="Lumi is excited for your journey" /></div>
       <div class="view-switch" role="group" aria-label="Choose learning view"><button class="${ui.learnView === 'path' ? 'active' : ''}" data-action="learn-view" data-view="path">🧭 Quest Path</button><button class="${ui.learnView === 'grid' ? 'active' : ''}" data-action="learn-view" data-view="grid">▦ All Worlds</button></div>
-      ${ui.learnView === 'grid' ? `<div class="lesson-grid">${lessons.map(lessonCard).join('')}</div>` : `<div class="quest-path"><div class="quest-trail"></div>${lessons.map((lesson,i) => {
+      ${ui.learnView === 'grid' ? `<div class="lesson-grid">${shown.map(lessonCard).join('')}</div>` : `<div class="quest-path"><div class="quest-trail"></div>${shown.map((lesson,i) => {
         const completed = Boolean(progress.lessonFinishes[lesson.id]);
         const seen = countSeen(lesson);
-        return `<div class="path-stop ${i % 2 ? 'right' : 'left'}"><button class="path-orb ${completed ? 'done' : ''}" style="--accent:${lesson.color}" data-action="open-lesson" data-id="${lesson.id}" aria-label="Open ${esc(lesson.title)}"><span>${lesson.emoji}</span>${completed ? '<i>✓</i>' : ''}</button><button class="path-card" data-action="open-lesson" data-id="${lesson.id}"><small>WORLD ${String(i+1).padStart(2,'0')} ${completed ? '· COMPLETED ⭐' : seen ? '· IN PROGRESS' : '· READY TO EXPLORE'}</small><strong>${esc(lesson.title)}</strong><span>${esc(lesson.subtitle)}</span><div class="path-card-footer">${seen} / 10 words <b>${completed ? 'Replay ↻' : 'Explore →'}</b></div></button></div>`;
+        return `<div class="path-stop ${i % 2 ? 'right' : 'left'}"><button class="path-orb ${completed ? 'done' : ''}" style="--accent:${lesson.color}" data-action="open-lesson" data-id="${lesson.id}" aria-label="Open ${esc(lesson.title)}"><span>${lesson.emoji}</span>${completed ? '<i>✓</i>' : ''}</button><button class="path-card" data-action="open-lesson" data-id="${lesson.id}"><small>WORLD ${String(i+1).padStart(2,'0')} ${completed ? '· COMPLETED ⭐' : seen ? '· IN PROGRESS' : '· READY TO EXPLORE'}</small><strong>${esc(lesson.title)}</strong><span>${esc(lesson.subtitle)}</span><div class="path-card-footer">${seen} / ${lesson.words.length} words <b>${completed ? 'Replay ↻' : 'Explore →'}</b></div></button></div>`;
       }).join('')}</div>`}`;
   }
   function stageHeader(title, subtitle, current, total, mint = true) {
@@ -152,7 +163,7 @@
       <p class="flip-help">${ui.flipped ? 'A little knowledge goes a long way 🌟' : 'Tap the card to reveal the meaning ✨'}</p>
       <button class="flashcard ${ui.flipped ? 'flipped' : ''}" data-action="flip" aria-label="Flip vocabulary card">
         <span class="card-orb">${ui.flipped ? '💡' : current.emoji}</span>
-        ${ui.flipped ? `<span class="word-type">THE MEANING</span><p class="definition">${esc(word.meaning)}</p><p class="example">“${esc(word.example)}”</p>` : `<h2>${esc(word.term)}</h2><span class="word-type">TAP TO DISCOVER</span>`}
+        ${ui.flipped ? `<span class="word-type">${word.level ? 'ARABIC MEANING' : 'THE MEANING'}</span><p class="definition" dir="auto">${esc(word.meaning)}</p>${word.example ? `<p class="example" dir="auto">“${esc(word.example)}”</p>` : ''}` : `<h2>${esc(word.term)}</h2><span class="word-type">TAP TO DISCOVER</span>`}
       </button><div class="lesson-actions">
         <button class="btn btn-outline" data-action="speak" data-id="${esc(word.id)}">🔊 Listen</button>
         <button class="btn btn-outline" data-action="favorite" data-id="${esc(word.id)}">${fav ? '❤️ Saved' : '🤍 Save word'}</button>
@@ -179,7 +190,9 @@
       <div class="surface"><div class="mini-grid"><div class="mini-stat"><span>🏆</span><strong>${progress.quizzesWon}</strong><small>QUIZZES</small></div><div class="mini-stat"><span>🎯</span><strong>${progress.perfectQuizzes}</strong><small>PERFECT</small></div><div class="mini-stat"><span>🧩</span><strong>${progress.completedMatches}</strong><small>MATCHES</small></div></div></div>`;
   }
   function startQuiz(mode, lessonId) {
-    const lessonWords = lessonId ? lessonById(lessonId).words : words;
+    const lessonWords = lessonId ? lessonById(lessonId).words : ui.exploreMode === 'bonus'
+      ? bonusLessons.flatMap(lesson => lesson.words)
+      : curriculumLessons.filter(lesson => lesson.level === ui.curriculumLevel).flatMap(lesson => lesson.words);
     const candidates = mode === 'review' ? (engine.dueWords(progress, lessonWords).length ? engine.dueWords(progress,lessonWords) : lessonWords.filter(w => wordSeen(w.id))) : lessonWords;
     const source = candidates.length ? candidates : lessonWords;
     const questions = mode === 'spell' ? engine.shuffle(source).slice(0, 8).map(word => ({word,answer:word.term})) : engine.makeQuiz(source, words, mode === 'boss' ? 15 : 10);
@@ -193,7 +206,7 @@
     const correct = q.answered === question.answer;
     return `<div class="lesson-stage">${stageHeader(q.mode === 'review' ? 'Smart Review' : q.mode === 'boss' ? '👑 Boss Battle' : 'Quick Quiz', `⭐ ${q.score} correct so far`, q.index + 1, q.questions.length)}
       <div class="quiz-prompt"><span class="small">WHAT DOES THIS WORD MEAN?</span><h2>${esc(question.word.term)}</h2><button class="speaker" data-action="speak" data-id="${esc(question.word.id)}" aria-label="Hear the word">🔊</button></div>
-      <div class="quiz-options">${question.options.map((option,i) => `<button class="answer ${q.eliminated.includes(option) ? 'eliminated' : ''} ${answered ? (option === question.answer ? 'correct' : (option === q.answered ? 'wrong' : '')) : ''}" data-action="answer" data-index="${i}" ${answered || q.eliminated.includes(option) ? 'disabled' : ''}><span style="color:#b5a9e3;margin-right:8px">${'ABCD'[i]}.</span>${q.eliminated.includes(option) ? '— Eliminated —' : esc(option)}</button>`).join('')}</div>
+      <div class="quiz-options">${question.options.map((option,i) => `<button class="answer ${q.eliminated.includes(option) ? 'eliminated' : ''} ${answered ? (option === question.answer ? 'correct' : (option === q.answered ? 'wrong' : '')) : ''}" data-action="answer" data-index="${i}" ${answered || q.eliminated.includes(option) ? 'disabled' : ''}><span style="color:#b5a9e3;margin-right:8px">${'ABCD'[i]}.</span><bdi>${q.eliminated.includes(option) ? '— Eliminated —' : esc(option)}</bdi></button>`).join('')}</div>
       ${!answered ? `<div class="helper-row"><span>💎 ${progress.coins} gems</span><button class="hint-button" data-action="quiz-hint" ${q.hintUsed || progress.coins < 15 ? 'disabled' : ''}>${q.hintUsed ? '✨ Hint used' : '✨ Remove 2 answers · 15 gems'}</button></div>` : ''}
       ${answered ? `<div class="feedback ${correct ? '' : 'wrong'}">${correct ? '🎉 Brilliant! That is exactly right.' : `💡 Good try! The answer is: ${esc(question.answer)}`}${nextQuestionButton(q)}</div>` : '<p class="center muted small mt-3">Choose your answer. Every try makes you stronger!</p>'}</div>`;
   }
@@ -203,18 +216,24 @@
     const answered = q.answered !== null;
     const correct = q.answered === question.answer;
     return `<div class="lesson-stage">${stageHeader('Spelling Bee', `✏️ ${q.score} correct so far`,q.index + 1,q.questions.length)}
-      <div class="quiz-prompt"><span class="small">SPELL THE WORD THAT MEANS</span><h2 style="font-size:clamp(23px,4.2vw,33px)">${esc(question.word.meaning)}</h2><p class="muted" style="font-style:italic">${esc(question.word.example.replace(new RegExp(question.word.term,'ig'), '______'))}</p></div>
+      <div class="quiz-prompt"><span class="small">SPELL THE WORD THAT MEANS</span><h2 dir="auto" style="font-size:clamp(23px,4.2vw,33px)">${esc(question.word.meaning)}</h2><p class="muted" style="font-style:italic">${esc((question.word.example || '').replace(new RegExp(question.word.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),'ig'), '______'))}</p></div>
       <input type="text" autocapitalize="off" autocomplete="off" spellcheck="false" data-role="spell-input" class="search spelling-input" aria-label="Spell the word" placeholder="Type the word..." value="${esc(q.response)}" ${answered ? 'disabled' : ''}/>
       ${answered ? `<div class="feedback ${correct ? '' : 'wrong'}">${correct ? '🎉 Perfect spelling!' : `💡 Correct spelling: ${esc(question.answer)}`}${nextQuestionButton(q)}</div>` : `<div class="helper-row"><span>${q.hintUsed ? `💡 Starts with “${esc(question.answer[0].toUpperCase())}” · ${question.answer.length} letters` : `💎 ${progress.coins} gems`}</span><button class="hint-button" data-action="spell-hint" ${q.hintUsed || progress.coins < 8 ? 'disabled' : ''}>${q.hintUsed ? 'Hint used' : '✨ Letter hint · 8 gems'}</button></div><button class="btn btn-primary btn-full btn-large mt-3" data-action="check-spelling">Check spelling ✓</button>`}</div>`;
   }
   function startMatch() {
-    const choices = engine.shuffle(words).slice(0,5);
+    const candidates = ui.exploreMode === 'bonus' ? bonusLessons.flatMap(l => l.words)
+      : curriculumLessons.filter(l => l.level === ui.curriculumLevel).flatMap(l => l.words);
+    const seenMeanings = new Set();
+    const choices = engine.shuffle(candidates).filter(word => {
+      if (seenMeanings.has(word.meaning)) return false;
+      seenMeanings.add(word.meaning); return true;
+    }).slice(0,5);
     ui.match = { words: choices, terms: engine.shuffle(choices), meanings: engine.shuffle(choices), selectedTerm: null, selectedMeaning: null, matched: [], attempts: 0 };
     ui.screen = 'match'; render(true);
   }
   function match() {
     const game = ui.match;
-    const tile = (word, side) => `<button class="match-tile ${game.matched.includes(word.id) ? 'matched' : ''} ${game[side === 'term' ? 'selectedTerm' : 'selectedMeaning'] === word.id ? 'selected' : ''}" data-action="match-pick" data-side="${side}" data-id="${esc(word.id)}" ${game.matched.includes(word.id) ? 'disabled' : ''}>${esc(side === 'term' ? word.term : word.meaning)}</button>`;
+    const tile = (word, side) => `<button class="match-tile ${game.matched.includes(word.id) ? 'matched' : ''} ${game[side === 'term' ? 'selectedTerm' : 'selectedMeaning'] === word.id ? 'selected' : ''}" data-action="match-pick" data-side="${side}" data-id="${esc(word.id)}" ${game.matched.includes(word.id) ? 'disabled' : ''}><bdi>${esc(side === 'term' ? word.term : word.meaning)}</bdi></button>`;
     return `<div class="lesson-stage">${stageHeader('Match Mania', 'Pair each word with its meaning', game.matched.length, 5)}
       <div class="center"><span style="font-size:57px">🧩</span><h2>Find the perfect pairs</h2><p class="muted small">Select one word and one meaning to connect them!</p></div>
       <div class="match-grid mt-3"><div class="match-column">${game.terms.map(w => tile(w,'term')).join('')}</div><div class="match-column">${game.meanings.map(w => tile(w,'meaning')).join('')}</div></div><p class="center muted small mt-3">${game.matched.length}/5 pairs matched · ${game.attempts} attempts</p></div>`;
@@ -230,16 +249,19 @@
   function filteredWords() {
     const term = ui.collectionQuery.trim().toLowerCase();
     return words.filter(w => (ui.collectionFilter === 'favorites' ? progress.favorites.includes(w.id) : ui.collectionFilter === 'learned' ? wordSeen(w.id) : true) &&
+      (ui.collectionLevel === 'all' || (ui.collectionLevel === 'bonus' ? !w.level : w.level === ui.collectionLevel)) &&
       (!term || `${w.term} ${w.meaning} ${lessonById(w.lessonId).title}`.toLowerCase().includes(term)));
   }
   function collectionRows() {
     const result = filteredWords();
-    return result.length ? `<div class="collection-grid">${result.map(w => `<div class="word-row"><span class="word-emoji">${lessonById(w.lessonId).emoji}</span><div class="copy"><h3>${esc(w.term)} ${engine.isMastered(progress,w.id) ? '🌟' : ''}</h3><p>${esc(w.meaning)}</p><small>${esc(lessonById(w.lessonId).title)} · ${wordSeen(w.id) ? 'Discovered' : 'New'}</small></div><button class="heart-btn" data-action="favorite" data-id="${esc(w.id)}" aria-label="${progress.favorites.includes(w.id) ? 'Unsave' : 'Save'} ${esc(w.term)}">${progress.favorites.includes(w.id) ? '❤️' : '🤍'}</button></div>`).join('')}</div>` : `<div class="empty"><span class="big">🔎</span><h3>No words found</h3><p>Try a different search, or discover a new word in the lessons.</p></div>`;
+    const visible = result.slice(0,ui.collectionLimit);
+    return result.length ? `<p class="collection-count">Showing ${visible.length.toLocaleString()} of ${result.length.toLocaleString()} matching words</p><div class="collection-grid">${visible.map(w => `<div class="word-row"><span class="word-emoji">${lessonById(w.lessonId).emoji}</span><div class="copy"><h3>${esc(w.term)} ${engine.isMastered(progress,w.id) ? '🌟' : ''}</h3><p dir="auto">${esc(w.meaning)}</p><small>${esc(lessonById(w.lessonId).title)} · ${wordSeen(w.id) ? 'Discovered' : 'New'}</small></div><button class="heart-btn" data-action="favorite" data-id="${esc(w.id)}" aria-label="${progress.favorites.includes(w.id) ? 'Unsave' : 'Save'} ${esc(w.term)}">${progress.favorites.includes(w.id) ? '❤️' : '🤍'}</button></div>`).join('')}</div>${visible.length < result.length ? `<button class="btn btn-outline btn-full mt-3" data-action="more-words">Load 60 more words ↓</button>` : ''}` : `<div class="empty"><span class="big">🔎</span><h3>No words found</h3><p>Try a different search, or discover a new word in the lessons.</p></div>`;
   }
   function collection() {
-    return `<div class="page-heading"><div class="eyebrow">YOUR PERSONAL WORD BANK</div><h1>My Word Collection 📖</h1><p>Search ${words.length} words, save favorites, and revisit your discoveries.</p></div>
+    return `<div class="page-heading"><div class="eyebrow">YOUR PERSONAL WORD BANK</div><h1>My Word Collection 📖</h1><p>Search ${words.length.toLocaleString()} words, save favorites, and revisit your discoveries.</p></div>
       <div class="section-tools"><input type="search" class="search" id="collection-search" placeholder="🔎 Search words or meanings..." value="${esc(ui.collectionQuery)}" aria-label="Search words" /></div>
       <div class="section-tools">${[['all','All words'],['learned','Discovered'],['favorites','❤️ Favorites']].map(([id,label]) => `<button class="filter-btn ${ui.collectionFilter === id ? 'active' : ''}" data-action="filter" data-id="${id}">${label}</button>`).join('')}</div>
+      <div class="level-filter" role="group" aria-label="Filter vocabulary by level">${[['all','All levels'],...levels.map(level => [level,level]),['bonus','Bonus']].map(([id,label]) => `<button class="filter-btn ${ui.collectionLevel === id ? 'active' : ''}" data-action="collection-level" data-level="${id}">${label}</button>`).join('')}</div>
       <div id="collection-results">${collectionRows()}</div>`;
   }
   function profile() {
@@ -374,6 +396,8 @@
       case 'nav': go(target.dataset.to); break;
       case 'back': back(); break;
       case 'learn-view': ui.learnView = target.dataset.view; render(); break;
+      case 'choose-level': ui.exploreMode = 'curriculum'; ui.curriculumLevel = target.dataset.level; render(); break;
+      case 'choose-bonus': ui.exploreMode = 'bonus'; render(); break;
       case 'open-lesson': openLesson(id); break;
       case 'flip': ui.flipped = !ui.flipped; render(); break;
       case 'study': study(target.dataset.known === 'yes'); break;
@@ -387,7 +411,9 @@
       case 'check-spelling': checkSpelling(); break;
       case 'start-match': startMatch(); break;
       case 'match-pick': matchPick(target.dataset.side,id); break;
-      case 'filter': ui.collectionFilter = id; render(); break;
+      case 'filter': ui.collectionFilter = id; ui.collectionLimit = 60; render(); break;
+      case 'collection-level': ui.collectionLevel = target.dataset.level; ui.collectionLimit = 60; render(); break;
+      case 'more-words': ui.collectionLimit += 60; document.getElementById('collection-results').innerHTML = collectionRows(); break;
       case 'claim-mission': {
         if (engine.claimMission(progress,id)) { save(); render(); celebrate(); playSound('reward'); toast('Treasure claimed! 💎'); }
         break;
@@ -408,6 +434,7 @@
     if (event.target.id === 'welcome-name') ui.onboardName = event.target.value;
     if (event.target.id === 'collection-search') {
       ui.collectionQuery = event.target.value;
+      ui.collectionLimit = 60;
       const result = document.getElementById('collection-results');
       if (result) result.innerHTML = collectionRows();
     }

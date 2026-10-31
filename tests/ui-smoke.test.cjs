@@ -20,6 +20,10 @@ test('app can render every main screen and play learning flows without a browser
     body: {appendChild() {}}
   };
   const fakeWindow = {VQ_LESSONS:lessons,VQEngine:engine,scrollTo(){}};
+  for (const level of ['a1','a2','b1','b2','c1','c2']) {
+    const curriculumFile = path.join(__dirname,`../app/src/main/assets/curriculum/curriculum-${level}.js`);
+    vm.runInNewContext(fs.readFileSync(curriculumFile,'utf8'),{window:fakeWindow},{filename:curriculumFile});
+  }
   const context = {window:fakeWindow,document:fakeDocument,localStorage:{
     getItem(key){return store.get(key) || null;},setItem(key,value){store.set(key,value);}
   },clearTimeout,setTimeout,console};
@@ -37,7 +41,12 @@ test('app can render every main screen and play learning flows without a browser
     assert.match(appRoot.innerHTML, /<main id="main-content">/);
   }
   click({action:'nav',to:'learn'});
-  assert.match(appRoot.innerHTML,/THE GRAND WORD JOURNEY/);
+  assert.match(appRoot.innerHTML,/36 READING ADVENTURES/);
+  assert.match(appRoot.innerHTML,/900 words/);
+  click({action:'choose-level',level:'C2'});
+  assert.match(appRoot.innerHTML,/C2 · 36 READING ADVENTURES/);
+  click({action:'choose-bonus'});
+  assert.match(appRoot.innerHTML,/BONUS WORD WORLDS/);
   click({action:'learn-view',view:'grid'});
   assert.match(appRoot.innerHTML,/All Worlds/);
 
@@ -74,9 +83,16 @@ test('app can render every main screen and play learning flows without a browser
   assert.match(appRoot.innerHTML,/Find the perfect pairs/);
 
   click({action:'nav',to:'collection'});
+  assert.match(appRoot.innerHTML,/5,550 words/);
+  assert.match(appRoot.innerHTML,/Showing 60 of 5,550/);
+  click({action:'more-words'});
+  assert.match(results.innerHTML,/Showing 120 of 5,550/);
+  click({action:'collection-level',level:'B2'});
+  assert.match(appRoot.innerHTML,/Showing 60 of 900/);
   click({action:'filter',id:'favorites'});
   assert.match(appRoot.innerHTML,/No words found/);
   click({action:'filter',id:'all'});
+  click({action:'collection-level',level:'bonus'});
   assert.match(appRoot.innerHTML,/curious/i);
 
   click({action:'nav',to:'profile'});

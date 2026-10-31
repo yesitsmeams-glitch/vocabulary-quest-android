@@ -96,7 +96,11 @@
     if (!unique.length) return [];
     const pool = [...new Map(allWords.map(word => [word.meaning, word])).values()];
     return shuffle(unique, random).slice(0, count).map(word => {
-      const wrong = shuffle(pool.filter(item => item.meaning !== word.meaning), random)
+      // Keep answer languages consistent: Arabic CEFR packs never mix their
+      // distractors with the English-definition bonus lessons.
+      const sameLevel = pool.filter(item => (item.level || 'bonus') === (word.level || 'bonus'));
+      const distractors = sameLevel.length >= 4 ? sameLevel : pool;
+      const wrong = shuffle(distractors.filter(item => item.meaning !== word.meaning), random)
         .slice(0, 3).map(item => item.meaning);
       return { word, answer: word.meaning,
         options: shuffle([word.meaning, ...wrong], random) };
@@ -154,7 +158,7 @@
       { icon: "👑", title: "Boss Slayer", description: "Conquer a Boss Battle", earned: progress.bossWins >= 1 },
       { icon: "💖", title: "Word Keeper", description: "Save 20 favorite words", earned: progress.favorites.length >= 20 },
       { icon: "🗺️", title: "World Traveler", description: "Finish 5 lessons", earned: Object.keys(progress.lessonFinishes).length >= 5 },
-      { icon: "🌌", title: "Ultimate Explorer", description: "Complete all 15 worlds", earned: Object.keys(progress.lessonFinishes).length >= 15 }
+      { icon: "🌌", title: "Ultimate Explorer", description: "Complete 36 adventures", earned: Object.keys(progress.lessonFinishes).length >= 36 }
     ];
   }
   const api = { dayKey, defaultProgress, normalizeProgress, touchDay, award,
