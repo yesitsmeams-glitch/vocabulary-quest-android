@@ -7,10 +7,12 @@
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
   function defaultProgress() {
-    return { version: 1, name: "Explorer", xp: 0, coins: 0, streak: 0,
+    return { version: 2, name: "Explorer", onboarded: false,
+      sound: true, reduceMotion: false, xp: 0, coins: 0, streak: 0,
       lastDay: "", dailyCount: 0, dailyGoal: 10, wordStats: {},
       favorites: [], lessonFinishes: {}, quizzesWon: 0, perfectQuizzes: 0,
-      completedMatches: 0, completedSpelling: 0 };
+      completedMatches: 0, completedSpelling: 0, bossWins: 0,
+      dailyHistory: {}, dailyClaims: {}, hintsUsed: 0 };
   }
   function normalizeProgress(value) {
     const base = defaultProgress();
@@ -19,7 +21,15 @@
     if (!state.wordStats || typeof state.wordStats !== "object") state.wordStats = {};
     if (!Array.isArray(state.favorites)) state.favorites = [];
     if (!state.lessonFinishes || typeof state.lessonFinishes !== "object") state.lessonFinishes = {};
+    if (!state.dailyHistory || typeof state.dailyHistory !== "object") state.dailyHistory = {};
+    if (!state.dailyClaims || typeof state.dailyClaims !== "object") state.dailyClaims = {};
+    if (Object.keys(state.wordStats).length > 0) state.onboarded = true;
     return state;
+  }
+  function activity(progress, now = new Date()) {
+    const key = dayKey(now);
+    if (!progress.dailyHistory[key]) progress.dailyHistory[key] = { words: 0, correct: 0, quizzes: 0, favorites: 0 };
+    return progress.dailyHistory[key];
   }
   function touchDay(progress, now = new Date()) {
     const key = dayKey(now);
@@ -46,8 +56,21 @@
       due: new Date(now).getTime() + (correct ? interval * DAY : 60 * 1000)
     };
     progress.dailyCount += 1;
+    activity(progress, now).words += 1;
+    if (correct) activity(progress, now).correct += 1;
     award(progress, correct ? 10 : 2);
     return progress.wordStats[wordId];
+  }
+  function recordQuiz(progress, score, total, mode, now = new Date()) {
+    touchDay(progress, now);
+    activity(progress, now).quizzes += 1;
+    progress.quizzesWon++;
+    if (score === total) progress.perfectQuizzes++;
+    if (mode === "spell") progress.completedSpelling++;
+    award(progress, 20);
+  }
+  function recordFavorite(progress, now = new Date()) {
+    activity(progress, now).favorites += 1;
   }
   function isMastered(progress, wordId) {
     const stat = progress.wordStats[wordId];
@@ -80,7 +103,43 @@
     });
   }
   function level(xp) { return Math.floor(Math.sqrt(Math.max(0, xp) / 80)) + 1; }
+  function levelInfo(xp) {
+    const current = level(xp);
+    const start = (current - 1) * (current - 1) * 80;
+    const end = current * current * 80;
+    return { level: current, earned: xp - start, target: end - start };
+  }
   function allWords(lessons) { return lessons.flatMap(lesson => lesson.words); }
+  const missions = [
+    { id: "scout", icon: "📚", title: "Word Scout", detail: "Practice 8 words today", metric: "words", target: 8, gems: 35 },
+    { id: "champion", icon: "🎯", title: "Quiz Champion", detail: "Finish one challenge", metric: "quizzes", target: 1, gems: 45 },
+    { id: "collector", icon: "💖", title: "Heart Collector", detail: "Save 3 favorite words", metric: "favorites", target: 3, gems: 25 }
+  ];
+  function missionState(progress, now = new Date()) {
+    const key = dayKey(now);
+    const today = progress.dailyHistory[key] || { words: 0, quizzes: 0, favorites: 0 };
+    return missions.map(mission => ({
+      ...mission,
+      current: Math.min(mission.target, today[mission.metric] || 0),
+      claimed: Boolean(progress.dailyClaims[`${key}:${mission.id}`])
+    }));
+  }
+  function claimMission(progress, missionId, now = new Date()) {
+    const mission = missionState(progress,now).find(m => m.id === missionId);
+    if (!mission || mission.claimed || mission.current < mission.target) return false;
+    progress.dailyClaims[`${dayKey(now)}:${mission.id}`] = true;
+    progress.coins += mission.gems;
+    return true;
+  }
+  function weeklyActivity(progress, now = new Date()) {
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - (6 - i));
+      const key = dayKey(date);
+      const data = progress.dailyHistory[key] || { words: 0, correct: 0 };
+      return { key, label: date.toLocaleDateString('en-US',{weekday:'short'}), words: data.words || 0, correct: data.correct || 0 };
+    });
+  }
   function achievements(progress, totalWords) {
     const learned = Object.keys(progress.wordStats).length;
     const mastered = totalWords.filter(word => isMastered(progress, word.id)).length;
@@ -88,13 +147,20 @@
       { icon: "🌟", title: "First Spark", description: "Learn your first word", earned: learned >= 1 },
       { icon: "🔥", title: "On Fire", description: "Reach a 3-day streak", earned: progress.streak >= 3 },
       { icon: "🧠", title: "Brain Power", description: "Master 10 words", earned: mastered >= 10 },
+      { icon: "📖", title: "Bookworm", description: "Discover 100 different words", earned: learned >= 100 },
       { icon: "🏅", title: "Quest Champion", description: "Earn 500 XP", earned: progress.xp >= 500 },
       { icon: "🎯", title: "Perfect Run", description: "Complete a perfect quiz", earned: progress.perfectQuizzes >= 1 },
-      { icon: "🗺️", title: "World Traveler", description: "Finish 5 lessons", earned: Object.keys(progress.lessonFinishes).length >= 5 }
+      { icon: "🧩", title: "Puzzle Pro", description: "Win 5 matching games", earned: progress.completedMatches >= 5 },
+      { icon: "👑", title: "Boss Slayer", description: "Conquer a Boss Battle", earned: progress.bossWins >= 1 },
+      { icon: "💖", title: "Word Keeper", description: "Save 20 favorite words", earned: progress.favorites.length >= 20 },
+      { icon: "🗺️", title: "World Traveler", description: "Finish 5 lessons", earned: Object.keys(progress.lessonFinishes).length >= 5 },
+      { icon: "🌌", title: "Ultimate Explorer", description: "Complete all 15 worlds", earned: Object.keys(progress.lessonFinishes).length >= 15 }
     ];
   }
   const api = { dayKey, defaultProgress, normalizeProgress, touchDay, award,
-    recordWord, isMastered, dueWords, shuffle, makeQuiz, level, allWords, achievements };
+    activity, recordWord, recordQuiz, recordFavorite, isMastered, dueWords,
+    shuffle, makeQuiz, level, levelInfo, allWords, missions,
+    missionState, claimMission, weeklyActivity, achievements };
   root.VQEngine = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

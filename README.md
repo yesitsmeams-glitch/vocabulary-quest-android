@@ -1,13 +1,16 @@
 # Vocabulary Quest
 
-An offline-first, colorful English vocabulary adventure for Android.
+An offline-first, premium-styled English vocabulary adventure for Android.
 
 ## What is included
 
-- 15 illustrated topic worlds and 150 carefully written starter words
+- Original fox explorer mascot **Lumi**, welcoming onboarding and a colorful quest path
+- 15 themed topic worlds and 150 carefully written starter words
 - Flip-card lessons with pronunciation, definitions and examples
 - Multiple-choice challenges, spelling challenges and matching pairs
-- Smart review scheduling, favorites, daily goals, streaks, XP and badges
+- Smart review scheduling, favorites, adjustable daily goals, streaks, XP and badges
+- Daily treasure missions, claimable gems, a Boss Battle and purchasable in-game hints
+- Weekly activity charts, level progress, sound effects and motion controls
 - Local progress saved on the device; no account or internet required
 - Responsive web preview using the same assets as the native Android app
 
@@ -33,6 +36,7 @@ allow Gradle to sync, and choose **Run** on an Android device or emulator.
 
 The Android host loads bundled local assets. Data stays in WebView's local
 storage. Browser preview uses the browser's local storage instead.
+An existing v1 learner's stored words, favorites, scores and XP are retained.
 
 ## Development checks
 
@@ -42,8 +46,9 @@ With Node.js 20 or later:
 npm test
 ```
 
-The tests validate the vocabulary collection, challenge options and review
-scheduling. The app requires no npm packages at runtime.
+The tests validate the vocabulary collection, challenge options, migration,
+daily missions and review scheduling, plus the major UI flows. The app requires
+no npm packages at runtime.
 
 ## Extending the word library
 

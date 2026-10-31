@@ -60,3 +60,38 @@ test('progress normalization repairs invalid storage objects', () => {
   assert.deepEqual(progress.favorites, []);
   assert.deepEqual(progress.wordStats, {});
 });
+
+test('upgrading progress preserves earlier words and skips onboarding for existing learners', () => {
+  const progress = engine.normalizeProgress({xp:200,wordStats:{'nature:habitat':{seen:3,correct:2,interval:2,due:0}}});
+  assert.equal(progress.xp,200);
+  assert.equal(progress.onboarded,true);
+  assert.equal(progress.wordStats['nature:habitat'].correct,2);
+  assert.deepEqual(progress.dailyHistory,{});
+});
+
+test('daily missions can only be claimed once and reset the following day', () => {
+  const progress = engine.defaultProgress();
+  const now = new Date('2026-10-20T12:00:00Z');
+  for (let i=0;i<8;i++) engine.recordWord(progress, words[i].id,true,now);
+  const mission = engine.missionState(progress,now).find(m => m.id === 'scout');
+  assert.equal(mission.current,8);
+  const before = progress.coins;
+  assert.equal(engine.claimMission(progress,'scout',now),true);
+  assert.equal(progress.coins,before+35);
+  assert.equal(engine.claimMission(progress,'scout',now),false);
+  const later = new Date('2026-10-21T12:00:00Z');
+  assert.equal(engine.missionState(progress,later).find(m => m.id === 'scout').claimed,false);
+});
+
+test('quiz and favorite activity contributes to daily quests and weekly history', () => {
+  const progress = engine.defaultProgress();
+  const now = new Date('2026-10-20T12:00:00Z');
+  engine.recordQuiz(progress,10,10,'choice',now);
+  engine.recordFavorite(progress,now);
+  assert.equal(progress.quizzesWon,1);
+  assert.equal(progress.perfectQuizzes,1);
+  assert.equal(engine.missionState(progress,now).find(m => m.id === 'champion').current,1);
+  const week = engine.weeklyActivity(progress,now);
+  assert.equal(week.length,7);
+  assert.equal(week[6].key,'2026-10-20');
+});

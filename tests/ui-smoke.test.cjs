@@ -13,7 +13,7 @@ test('app can render every main screen and play learning flows without a browser
   const fakeInput = {value: 'curious'};
   const store = new Map();
   const fakeDocument = {
-    getElementById(id) { if (id === 'app') return appRoot; if (id === 'collection-results') return results; if (id === 'name-field') return {value:'Word Wizard'}; return null; },
+    getElementById(id) { if (id === 'app') return appRoot; if (id === 'collection-results') return results; if (id === 'name-field' || id === 'welcome-name') return {value:'Word Wizard'}; return null; },
     querySelector(selector) { if (selector === '[data-role="spell-input"]') return fakeInput; return null; },
     addEventListener(type,fn) { listeners[type] = fn; },
     createElement() { return {textContent:'',className:'',remove(){}}; },
@@ -27,11 +27,19 @@ test('app can render every main screen and play learning flows without a browser
   vm.runInNewContext(fs.readFileSync(file,'utf8'),context,{filename:file});
 
   const click = (data) => listeners.click({target:{closest:() => ({dataset:data})}});
-  assert.match(appRoot.innerHTML,/Unlock a world/);
+  assert.match(appRoot.innerHTML,/Every word/);
+  click({action:'onboard-goal',count:'15'});
+  click({action:'finish-onboard'});
+  assert.match(appRoot.innerHTML,/Big dreams/);
+  assert.equal(fakeWindow.VQ.getProgress().dailyGoal,15);
   for (const page of ['learn','practice','collection','profile','home']) {
     click({action:'nav',to:page});
     assert.match(appRoot.innerHTML, /<main id="main-content">/);
   }
+  click({action:'nav',to:'learn'});
+  assert.match(appRoot.innerHTML,/THE GRAND WORD JOURNEY/);
+  click({action:'learn-view',view:'grid'});
+  assert.match(appRoot.innerHTML,/All Worlds/);
 
   click({action:'open-lesson',id:'nature'});
   assert.match(appRoot.innerHTML,/habitat/i);
@@ -39,9 +47,19 @@ test('app can render every main screen and play learning flows without a browser
   assert.match(appRoot.innerHTML,/natural home/i);
   click({action:'study',known:'yes'});
   assert.match(appRoot.innerHTML,/canopy/i);
+  for (let i=0;i<7;i++) click({action:'study',known:'yes'});
+  click({action:'nav',to:'home'});
+  assert.match(appRoot.innerHTML,/Daily treasure quests/);
+  const gemsBefore = fakeWindow.VQ.getProgress().coins;
+  click({action:'claim-mission',id:'scout'});
+  assert.equal(fakeWindow.VQ.getProgress().coins,gemsBefore+35);
 
   click({action:'start-quiz',mode:'choice'});
   assert.match(appRoot.innerHTML,/WHAT DOES THIS WORD MEAN/);
+  assert.match(appRoot.innerHTML,/Remove 2 answers/);
+  click({action:'quiz-hint'});
+  assert.match(appRoot.innerHTML,/Eliminated/);
+  click({action:'start-quiz',mode:'choice'});
   click({action:'answer',index:'0'});
   assert.match(appRoot.innerHTML,/Next question|See results/);
   click({action:'next-question'});
@@ -62,6 +80,7 @@ test('app can render every main screen and play learning flows without a browser
   assert.match(appRoot.innerHTML,/curious/i);
 
   click({action:'nav',to:'profile'});
+  assert.match(appRoot.innerHTML,/Learning momentum/);
   click({action:'save-name'});
   assert.equal(fakeWindow.VQ.getProgress().name,'Word Wizard');
   assert.ok(store.has('vocabulary-quest-progress-v1'));
